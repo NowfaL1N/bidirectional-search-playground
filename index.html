@@ -1,0 +1,1347 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bidirectional Search Playground</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: an instrument bench. Inputs on the left, the search field in the middle, readings on the right. */
+:root {
+  --bg: #E9EDF2; --panel: #F7F9FB; --ink: #16202E; --ink2: #4A5667; --ink3: #5F6C7E; --line: #D3DAE3;
+  --cell: #FFFFFF; --gridline: #E6EBF1; --wall: #2A3545; --mud: #CDB98F;
+  --f: #D9480F; --b: #1C5FD4; --both: #7A3FB0; --path: #101826; --casing: #FFFFFF; --lb: #0B7F74; --warn: #9A5B00;
+  --display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0F141B; --panel: #171E28; --ink: #E7ECF3; --ink2: #AEB9C7; --ink3: #93A0B1; --line: #2B3543;
+  --cell: #222B38; --gridline: #2A3442; --wall: #05080C; --mud: #6A5A3A;
+  --f: #E8651F; --b: #4A8EF2; --both: #B98CF0; --path: #FFFFFF; --casing: #0F141B; --lb: #4FD1C5; --warn: #F0B35A;
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #0F141B; --panel: #171E28; --ink: #E7ECF3; --ink2: #AEB9C7; --ink3: #93A0B1; --line: #2B3543;
+  --cell: #222B38; --gridline: #2A3442; --wall: #05080C; --mud: #6A5A3A;
+  --f: #E8651F; --b: #4A8EF2; --both: #B98CF0; --path: #FFFFFF; --casing: #0F141B; --lb: #4FD1C5; --warn: #F0B35A;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--body); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px 40px; }
+h1, h2, h3, p { margin: 0; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--b); outline-offset: 2px; }
+canvas { display: block; }
+
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; padding-bottom: 12px; }
+.brand { min-width: 0; flex: 1 1 250px; }
+.brand h1 { font: 700 23px/1.1 var(--display); letter-spacing: -.01em; text-wrap: balance; }
+.brand p { color: var(--ink2); font-size: 13px; }
+.transport { display: flex; align-items: center; gap: 8px; }
+.round { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); cursor: pointer; display: grid; place-items: center; }
+.round:hover { border-color: var(--ink3); }
+.round svg { width: 15px; height: 15px; fill: currentColor; }
+#play { width: 52px; height: 52px; background: var(--ink); color: var(--bg); border: 0; }
+#play svg { width: 20px; height: 20px; }
+.counter { margin-left: 8px; }
+.counter b { display: block; font: 700 25px/1 var(--display); font-variant-numeric: tabular-nums; min-width: 66px; }
+.label { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); }
+.params { display: flex; flex-wrap: wrap; gap: 10px 14px; }
+.param { display: grid; gap: 2px; min-width: 0; }
+select { background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 5px 7px; max-width: 170px; }
+input[type=range] { width: 100%; accent-color: var(--ink2); margin: 0; }
+
+.board { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); grid-template-areas: "stage" "output" "map" "feat"; align-items: start; }
+@media (min-width: 760px) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "stage stage" "map feat" "output output"; } }
+@media (min-width: 1180px) { .board { grid-template-columns: 236px minmax(0, 1fr) 276px; grid-template-areas: "map stage output" "feat stage output"; grid-template-rows: auto 1fr; } }
+@media (min-width: 1560px) { .board { grid-template-columns: 200px 250px minmax(0, 1fr) 300px; grid-template-areas: "map feat stage output"; grid-template-rows: auto; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-width: 0; display: grid; gap: 11px; align-content: start; }
+.panel h2 { font: 600 12px/1.2 var(--body); letter-spacing: .06em; text-transform: uppercase; }
+.map { grid-area: map; } .feat { grid-area: feat; } .stage { grid-area: stage; } .output { grid-area: output; }
+
+.presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.tile { background: none; border: 1px solid var(--line); border-radius: 5px; padding: 3px; cursor: pointer; display: grid; gap: 2px; font-size: 11.5px; text-align: center; min-width: 0; color: var(--ink2); }
+.tile canvas { width: 100%; image-rendering: pixelated; border-radius: 2px; }
+.tile:hover { border-color: var(--ink3); }
+.tile[aria-pressed=true] { border: 1px solid var(--ink); box-shadow: inset 0 0 0 1px var(--ink); color: var(--ink); font-weight: 600; }
+.slider { display: grid; gap: 2px; }
+.slider .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--ink2); }
+.slider output { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+.btn { background: none; border: 1px solid var(--line); border-radius: 5px; padding: 5px 9px; cursor: pointer; font-size: 13px; }
+.btn:hover { border-color: var(--ink3); }
+
+.pipe { position: relative; display: grid; grid-template-columns: 92px minmax(26px, 1fr) 76px; }
+.pipe svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.pipe path { fill: none; }
+.pipe.live path { stroke-dasharray: 5 5; animation: flow .7s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -10; } }
+@media (prefers-reduced-motion: reduce) { .pipe.live path { animation: none; stroke-dasharray: none; } }
+.ftiles { display: grid; gap: 5px; grid-column: 1; z-index: 1; }
+.ftile { position: relative; }
+.ftile canvas { height: 38px; }
+.ftile:not([aria-pressed=true]) canvas { opacity: .4; }
+.ftile .bad { position: absolute; top: 5px; right: 5px; width: 15px; height: 15px; border-radius: 50%; background: var(--warn); color: var(--panel); font: 700 11px/15px var(--body); }
+.neurons { grid-column: 3; display: flex; flex-direction: column; justify-content: space-around; z-index: 1; }
+.neuron { text-align: center; font-size: 11.5px; color: var(--ink2); display: grid; gap: 3px; }
+.neuron canvas { width: 100%; image-rendering: pixelated; border-radius: 5px; border: 1px solid var(--line); background: var(--cell); }
+.neuron b { font: 500 12px var(--mono); color: var(--ink); }
+.note { font-size: 12.5px; color: var(--ink2); min-height: 36px; }
+.note.warn { color: var(--warn); }
+
+.stagehead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.seg button { border: 0; background: none; padding: 4px 10px; cursor: pointer; font-size: 13px; color: var(--ink2); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed=true] { background: var(--ink); color: var(--bg); }
+#grid { width: 100%; touch-action: none; border-radius: 4px; cursor: crosshair; background: var(--cell); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 13px; font-size: 12px; color: var(--ink2); }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.scrub { display: flex; gap: 10px; align-items: center; }
+.scrub output { font: 12px var(--mono); white-space: nowrap; }
+#narrate { font-size: 13.5px; min-height: 40px; }
+.formula { border-top: 1px solid var(--line); padding-top: 9px; display: grid; gap: 4px 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.formula code, td code { font: 12.5px var(--mono); }
+.formula div > span { display: block; }
+
+.metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.metric b { display: block; font: 700 22px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.badge { font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 10px; border: 1px solid currentColor; display: inline-block; }
+.balance { display: flex; height: 8px; gap: 2px; }
+.balance i { display: block; height: 8px; border-radius: 2px; min-width: 2px; transition: flex-grow .1s; }
+.split { display: flex; justify-content: space-between; font: 12px var(--mono); color: var(--ink2); margin-top: 3px; }
+.chart { position: relative; }
+.chart canvas { width: 100%; height: 118px; cursor: crosshair; }
+.chart.small canvas { height: 78px; }
+.tip { position: absolute; top: 0; pointer-events: none; background: var(--ink); color: var(--bg); font: 11.5px/1.4 var(--mono); padding: 3px 7px; border-radius: 4px; white-space: nowrap; }
+.cmp { display: grid; gap: 1px; }
+.cmp button { display: grid; grid-template-columns: 96px minmax(0, 1fr) 44px; gap: 7px; align-items: center; background: none; border: 0; border-radius: 4px; padding: 3px 4px; cursor: pointer; text-align: left; font-size: 12.5px; }
+.cmp button:hover { background: var(--bg); }
+.cmp button[aria-pressed=true] { font-weight: 600; background: var(--bg); }
+.cmp .track { height: 8px; }
+.cmp .fill { height: 8px; border-radius: 0 3px 3px 0; background: var(--ink3); min-width: 2px; }
+.cmp [aria-pressed=true] .fill { background: var(--ink); }
+.cmp .num { font: 12px var(--mono); text-align: right; }
+.cmp .off { display: block; font: 10.5px var(--body); color: var(--warn); }
+
+.guide { max-width: 1000px; margin: 34px auto 0; display: grid; gap: 28px; }
+.guide h2 { font: 700 22px/1.15 var(--display); text-wrap: balance; margin-bottom: 8px; }
+.guide p { max-width: 68ch; margin-bottom: 8px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 13px; }
+th { text-align: left; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink3); font-weight: 500; }
+th, td { border-bottom: 1px solid var(--line); padding: 7px 12px 7px 0; vertical-align: top; }
+.recipes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+.recipe { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; cursor: pointer; display: grid; gap: 3px; }
+.recipe:hover { border-color: var(--ink3); }
+.recipe b { font-weight: 600; }
+.recipe span { color: var(--ink2); font-size: 13px; }
+.keys { color: var(--ink3); font-size: 12.5px; }
+kbd { font: 11.5px var(--mono); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
+</style>
+
+<header class="bar">
+  <div class="brand">
+    <h1>Bidirectional Search Playground</h1>
+    <p>Two searches, one from each end. Change anything and see what it does to the meeting point.</p>
+  </div>
+  <div class="transport">
+    <button class="round" id="reset" title="Back to the first step (R)" aria-label="Back to the first step"><svg viewBox="0 0 16 16"><path d="M3 2h2v12H3zM14 2v12L6 8z"/></svg></button>
+    <button class="round" id="play" title="Play or pause (Space)" aria-label="Play"><svg viewBox="0 0 16 16"><path id="playicon" d="M4 2l10 6-10 6z"/></svg></button>
+    <button class="round" id="step" title="One step forward (right arrow)" aria-label="One step forward"><svg viewBox="0 0 16 16"><path d="M2 2l9 6-9 6zM12 2h2v12h-2z"/></svg></button>
+    <div class="counter"><b id="count">0</b><span class="label">Expansions</span></div>
+  </div>
+  <div class="params">
+    <label class="param"><span class="label">Algorithm</span>
+      <select id="algo">
+        <optgroup label="Bidirectional heuristic">
+          <option value="mm">MM</option><option value="nbs">NBS</option><option value="bs">BS*</option>
+          <option value="bhpa">BHPA</option><option value="balanced">Balanced Bi-A*</option><option value="f2f">Front-to-Front</option>
+        </optgroup>
+        <optgroup label="Baselines"><option value="bidijkstra">Bidirectional Dijkstra</option><option value="astar">A* (one direction)</option></optgroup>
+      </select></label>
+    <label class="param"><span class="label">Moves</span>
+      <select id="moves"><option value="4">4 directions</option><option value="8">8 directions</option></select></label>
+    <label class="param"><span class="label">Which side next</span>
+      <select id="side"><option value="auto">Algorithm default</option><option value="alternate">Alternate</option><option value="smaller">Smaller frontier</option><option value="key">Lowest priority</option></select></label>
+    <label class="param" style="width:128px"><span class="label">Speed</span>
+      <input type="range" id="speed" min="0" max="100" value="55" aria-label="Playback speed"></label>
+  </div>
+</header>
+
+<main class="board">
+  <section class="panel map" aria-label="Map">
+    <h2>Map</h2>
+    <div class="presets" id="presets"></div>
+    <div class="slider"><div class="row"><label for="cols">Width in cells</label><output id="colsv"></output></div><input type="range" id="cols" min="21" max="81" step="2" value="51"></div>
+    <div class="slider"><div class="row"><label for="noise">Random walls</label><output id="noisev"></output></div><input type="range" id="noise" min="0" max="40" value="0"></div>
+    <div class="slider"><div class="row"><label for="mud">Mud (cost 5)</label><output id="mudv"></output></div><input type="range" id="mud" min="0" max="70" value="0"></div>
+    <button class="btn" id="shuffle">Shuffle this map</button>
+  </section>
+
+  <section class="panel feat" aria-label="Heuristic features">
+    <h2>Heuristic features</h2>
+    <div class="pipe" id="pipe">
+      <svg id="links" aria-hidden="true"></svg>
+      <div class="ftiles" id="ftiles"></div>
+      <div class="neurons">
+        <div class="neuron" id="nF"><canvas id="cF"></canvas><span>Forward open</span><b id="oF">0</b></div>
+        <div class="neuron" id="nB"><canvas id="cB"></canvas><span>Backward open</span><b id="oB">0</b></div>
+      </div>
+    </div>
+    <div class="slider"><div class="row"><label for="weight">Heuristic weight w</label><output id="weightv"></output></div><input type="range" id="weight" min="0" max="2.5" step="0.05" value="1"></div>
+    <p class="note" id="hnote"></p>
+  </section>
+
+  <section class="panel stage" aria-label="Search field">
+    <div class="stagehead">
+      <div class="seg" id="tools" role="group" aria-label="Drawing tool">
+        <button data-v="wall" aria-pressed="true">Wall</button><button data-v="mud" aria-pressed="false">Mud</button><button data-v="erase" aria-pressed="false">Erase</button>
+      </div>
+      <div class="seg" id="views" role="group" aria-label="What the grid shows">
+        <button data-v="frontier" aria-pressed="true">Frontiers</button><button data-v="territory" aria-pressed="false">Territory</button><button data-v="field" aria-pressed="false">Heuristic</button>
+      </div>
+    </div>
+    <canvas id="grid" aria-label="Grid showing the forward and backward searches. Draw on it to add walls or mud, or drag the start and goal."></canvas>
+    <div class="legend" id="legend"></div>
+    <div class="scrub">
+      <input type="range" id="scrub" min="0" max="1" value="0" aria-label="Step in the search">
+      <output id="scrubv"></output>
+    </div>
+    <p id="narrate" aria-live="polite"></p>
+    <div class="formula">
+      <div><span class="label">Picks the node with lowest</span><code id="fpri"></code></div>
+      <div><span class="label">Stops when</span><code id="fstop"></code></div>
+    </div>
+  </section>
+
+  <section class="panel output" aria-label="Output">
+    <h2>Output</h2>
+    <div class="metrics">
+      <div class="metric"><b id="mU">∞</b><span class="label">Best path U</span></div>
+      <div class="metric"><b id="mLB">0</b><span class="label">Lower bound</span></div>
+      <div class="metric"><b id="mGap">∞</b><span class="label">Gap U − LB</span></div>
+      <div class="metric"><b id="mTrue">0</b><span class="label">True shortest</span></div>
+    </div>
+    <div id="verdict"></div>
+    <div>
+      <div class="balance"><i id="balF" style="background:var(--f)"></i><i id="balB" style="background:var(--b)"></i></div>
+      <div class="split"><span id="expF"></span><span id="expB"></span></div>
+    </div>
+    <div>
+      <div class="label">Proof closing</div>
+      <div class="legend"><span><i style="background:var(--ink)"></i>Best path U</span><span><i style="background:var(--lb)"></i>Lower bound</span></div>
+      <div class="chart" id="wrapBound"><canvas id="chartBound" role="img" aria-label="Upper and lower bound over the search"></canvas></div>
+    </div>
+    <div>
+      <div class="label">Frontier size</div>
+      <div class="chart small" id="wrapOpen"><canvas id="chartOpen" role="img" aria-label="Forward and backward frontier size over the search"></canvas></div>
+    </div>
+    <div>
+      <div class="label">All algorithms on this map, nodes expanded</div>
+      <div class="cmp" id="cmp"></div>
+    </div>
+  </section>
+</main>
+
+<div class="guide">
+  <section>
+    <h2>How to read it</h2>
+    <p>Orange grows from the start and blue grows from the goal. Solid cells are the frontier, faded cells are finished. A dashed line appears when the frontiers first connect. It marks the best path found so far, which the search hasn't yet proved to be the shortest.</p>
+    <p>The search is finished when the best path U meets the lower bound in the <em>Proof closing</em> chart. Until then, a cheaper path could still exist.</p>
+    <p class="keys"><kbd>Space</kbd> play or pause, <kbd>→</kbd> step, <kbd>←</kbd> step back, <kbd>R</kbd> reset. Draw on the grid to add walls, or drag the start and goal.</p>
+  </section>
+  <section>
+    <h2>Try these</h2>
+    <div class="recipes" id="recipes"></div>
+  </section>
+  <section>
+    <h2>The algorithms</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Algorithm</th><th>Picks lowest</th><th>Stops when</th><th>Good to know</th><th>Source</th></tr></thead>
+      <tbody id="algotable"></tbody>
+    </table></div>
+    <p class="keys" style="margin-top:9px">g is the cost so far, h the estimate of what remains, f = g + h, and ε = 1 is the cheapest edge on the grid. F and B mean forward and backward.</p>
+  </section>
+</div>
+
+<script>
+/* Bidirectional heuristic search engine.
+   No DOM access, so the same file runs in the page and in the Node test harness. */
+(function (root) {
+  'use strict';
+
+  const FREE = 0, WALL = 1, MUD = 2;
+  const MUD_COST = 5;
+  const TOL = 1e-9;
+  const EPS = 1; // cheapest possible edge on these grids
+  const NONE = 0, OPEN = 1, CLOSED = 2, PRUNED = 3;
+
+  /* ---------- random numbers and maps ---------- */
+
+  function rng(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function carveMaze(cells, w, h, rand) {
+    cells.fill(WALL);
+    const stack = [[1, 1]];
+    cells[w + 1] = FREE;
+    const dirs = [[2, 0], [-2, 0], [0, 2], [0, -2]];
+    while (stack.length) {
+      const [x, y] = stack[stack.length - 1];
+      const options = dirs.filter(([dx, dy]) => {
+        const nx = x + dx, ny = y + dy;
+        return nx > 0 && ny > 0 && nx < w - 1 && ny < h - 1 && cells[ny * w + nx] === WALL;
+      });
+      if (!options.length) { stack.pop(); continue; }
+      const [dx, dy] = options[Math.floor(rand() * options.length)];
+      cells[(y + dy / 2) * w + x + dx / 2] = FREE;
+      cells[(y + dy) * w + x + dx] = FREE;
+      stack.push([x + dx, y + dy]);
+    }
+    // Remove some dead ends so the maze has more than one route.
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+      if ((x % 2) !== (y % 2) && cells[y * w + x] === WALL && rand() < 0.1) cells[y * w + x] = FREE;
+    }
+  }
+
+  function buildRooms(cells, w, h, rand) {
+    const rw = 10, rh = 8;
+    for (let x = rw; x < w - 3; x += rw) for (let y = 0; y < h; y++) cells[y * w + x] = WALL;
+    for (let y = rh; y < h - 3; y += rh) for (let x = 0; x < w; x++) cells[y * w + x] = WALL;
+    for (let x = rw; x < w - 3; x += rw) for (let y0 = 0; y0 < h; y0 += rh) {
+      const y = y0 + 1 + Math.floor(rand() * Math.min(rh - 1, h - y0 - 1));
+      if (y < h) cells[y * w + x] = FREE;
+    }
+    for (let y = rh; y < h - 3; y += rh) for (let x0 = 0; x0 < w; x0 += rw) {
+      const x = x0 + 1 + Math.floor(rand() * Math.min(rw - 1, w - x0 - 1));
+      if (x < w) cells[y * w + x] = FREE;
+    }
+  }
+
+  function buildTraps(cells, w, h, sx, gx, mid) {
+    const r = Math.max(3, Math.floor(h * 0.3));
+    const arm = Math.max(3, Math.floor(w * 0.12));
+    const put = (x, y) => { if (x >= 0 && y >= 0 && x < w && y < h) cells[y * w + x] = WALL; };
+    for (let y = mid - r; y <= mid + r; y++) { put(sx + 3, y); put(gx - 3, y); }
+    for (let i = 0; i <= arm; i++) {
+      put(sx + 3 - i, mid - r); put(sx + 3 - i, mid + r);
+      put(gx - 3 + i, mid - r); put(gx - 3 + i, mid + r);
+    }
+  }
+
+  function reachable(cells, w, h, a, b, passNoise) {
+    const prev = new Int32Array(w * h).fill(-1);
+    const queue = [a];
+    prev[a] = a;
+    for (let q = 0; q < queue.length; q++) {
+      const i = queue[q];
+      if (i === b) return prev;
+      const x = i % w, y = (i - x) / w;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const j = ny * w + nx;
+        if (prev[j] >= 0) continue;
+        if (cells[j] === WALL && !(passNoise && passNoise[j])) continue;
+        prev[j] = i;
+        queue.push(j);
+      }
+    }
+    return null;
+  }
+
+  function makeMap(preset, w, h, seed, noisePct, mudPct) {
+    w |= 1; h |= 1; // odd sizes keep maze corridors aligned
+    const rand = rng(seed);
+    const cells = new Uint8Array(w * h);
+    let mid = (h - 1) >> 1;
+    if (mid % 2 === 0) mid -= 1;
+    let sx = 1, gx = w - 2;
+    if (preset === 'maze') carveMaze(cells, w, h, rand);
+    else if (preset === 'rooms') buildRooms(cells, w, h, rand);
+    else if (preset === 'traps') {
+      sx = Math.round(w * 0.24); gx = w - 1 - sx;
+      buildTraps(cells, w, h, sx, gx, mid);
+    }
+    const start = mid * w + sx, goal = mid * w + gx;
+    cells[start] = FREE; cells[goal] = FREE;
+
+    const noise = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) {
+      if (cells[i] === FREE && i !== start && i !== goal && rand() < noisePct / 100) { cells[i] = WALL; noise[i] = 1; }
+    }
+    // Reopen just enough random walls to keep the two ends connected.
+    if (!reachable(cells, w, h, start, goal, null)) {
+      const prev = reachable(cells, w, h, start, goal, noise);
+      if (prev) for (let i = goal; i !== start; i = prev[i]) if (noise[i]) cells[i] = FREE;
+    }
+    if (mudPct > 0) {
+      const p = [rand() * 6, rand() * 6, rand() * 6, rand() * 6];
+      const field = [];
+      const value = new Float64Array(w * h);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const v = Math.sin(x * 0.19 + p[0]) + Math.sin(y * 0.23 + p[1]) +
+          Math.sin((x + y) * 0.11 + p[2]) + Math.sin((x - y) * 0.31 + p[3]);
+        value[y * w + x] = v;
+        if (cells[y * w + x] === FREE) field.push(v);
+      }
+      field.sort((a, b) => b - a);
+      const cut = field[Math.min(field.length - 1, Math.floor(field.length * mudPct / 100))];
+      for (let i = 0; i < w * h; i++) if (cells[i] === FREE && value[i] > cut && i !== start && i !== goal) cells[i] = MUD;
+    }
+    return { w, h, cells, start, goal };
+  }
+
+  /* ---------- graph, heuristics ---------- */
+
+  function buildGraph(map, diag) {
+    const { w, h, cells } = map;
+    const adj = new Array(w * h);
+    const terrain = (i) => (cells[i] === MUD ? MUD_COST : 1);
+    const open = (x, y) => x >= 0 && y >= 0 && x < w && y < h && cells[y * w + x] !== WALL;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x, list = [];
+      adj[i] = list;
+      if (cells[i] === WALL) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        if (!open(x + dx, y + dy)) continue;
+        const j = (y + dy) * w + x + dx;
+        list.push(j, (terrain(i) + terrain(j)) / 2);
+      }
+      if (!diag) continue;
+      for (const [dx, dy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        if (!open(x + dx, y + dy) || !open(x + dx, y) || !open(x, y + dy)) continue;
+        const j = (y + dy) * w + x + dx;
+        list.push(j, Math.SQRT2 * (terrain(i) + terrain(j)) / 2);
+      }
+    }
+    return adj;
+  }
+
+  // Binary-heap Dijkstra from one source; used for landmarks and ground truth.
+  function dijkstra(adj, src) {
+    const dist = new Float64Array(adj.length).fill(Infinity);
+    dist[src] = 0;
+    const hk = [0], hv = [src];
+    const push = (k, v) => {
+      let i = hk.length; hk.push(k); hv.push(v);
+      while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (hk[p] <= k) break;
+        hk[i] = hk[p]; hv[i] = hv[p]; i = p;
+      }
+      hk[i] = k; hv[i] = v;
+    };
+    const pop = () => {
+      const k = hk[0], v = hv[0], lk = hk.pop(), lv = hv.pop();
+      const n = hk.length;
+      if (n) {
+        let i = 0;
+        for (;;) {
+          let c = 2 * i + 1;
+          if (c >= n) break;
+          if (c + 1 < n && hk[c + 1] < hk[c]) c++;
+          if (hk[c] >= lk) break;
+          hk[i] = hk[c]; hv[i] = hv[c]; i = c;
+        }
+        hk[i] = lk; hv[i] = lv;
+      }
+      return [k, v];
+    };
+    while (hk.length) {
+      const [d, u] = pop();
+      if (d > dist[u]) continue;
+      const list = adj[u];
+      for (let e = 0; e < list.length; e += 2) {
+        const nd = d + list[e + 1];
+        if (nd < dist[list[e]]) { dist[list[e]] = nd; push(nd, list[e]); }
+      }
+    }
+    return dist;
+  }
+
+  function pickLandmarks(adj, cells, start, count) {
+    const out = [];
+    const best = new Float64Array(adj.length).fill(Infinity);
+    let source = start;
+    for (let k = 0; k <= count; k++) {
+      const d = dijkstra(adj, source);
+      if (k > 0) out.push(d);
+      let far = -1, farV = -1;
+      for (let i = 0; i < adj.length; i++) {
+        if (cells[i] === WALL || d[i] === Infinity) continue;
+        best[i] = k === 0 ? d[i] : Math.min(best[i], d[i]);
+        if (best[i] > farV) { farV = best[i]; far = i; }
+      }
+      if (far < 0) break;
+      source = far;
+    }
+    return out;
+  }
+
+  const FEATURE_NAMES = ['manhattan', 'euclid', 'chebyshev', 'octile', 'landmark'];
+
+  function makeProblem(map, options) {
+    const adj = buildGraph(map, options.diag);
+    const w = map.w;
+    const features = options.features.slice();
+    const weight = options.weight;
+    let landmarks = null;
+    const lm = () => landmarks || (landmarks = pickLandmarks(adj, map.cells, map.start, 4));
+
+    function feature(name, a, b) {
+      if (name === 'landmark') {
+        let best = 0;
+        for (const d of lm()) {
+          if (d[a] === Infinity || d[b] === Infinity) continue;
+          const v = Math.abs(d[a] - d[b]);
+          if (v > best) best = v;
+        }
+        return best;
+      }
+      const ax = a % w, ay = (a - ax) / w, bx = b % w, by = (b - bx) / w;
+      const dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
+      switch (name) {
+        case 'manhattan': return dx + dy;
+        case 'euclid': return Math.sqrt(dx * dx + dy * dy);
+        case 'chebyshev': return Math.max(dx, dy);
+        case 'octile': return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
+        default: return 0;
+      }
+    }
+    function h(a, b) {
+      let best = 0;
+      for (let i = 0; i < features.length; i++) {
+        const v = feature(features[i], a, b);
+        if (v > best) best = v;
+      }
+      return best * weight;
+    }
+    return { map, adj, n: adj.length, start: map.start, goal: map.goal, diag: !!options.diag, features, weight, h, feature };
+  }
+
+  function exactCost(problem) {
+    return dijkstra(problem.adj, problem.start)[problem.goal];
+  }
+
+  /* ---------- algorithm definitions ---------- */
+
+  const ALGOS = {
+    astar: { name: 'A*', bi: false, side: 'forward', tie: 'high', key: (s, side, n, g, h, f) => f,
+      lb: (F) => F.fmin },
+    bidijkstra: { name: 'Bi-Dijkstra', bi: true, side: 'key', tie: 'low', noH: true, key: (s, side, n, g) => g,
+      lb: (F, B) => F.gmin + B.gmin + EPS },
+    bhpa: { name: 'BHPA', bi: true, side: 'smaller', tie: 'high', key: (s, side, n, g, h, f) => f,
+      lb: (F, B) => Math.max(F.fmin, B.fmin) },
+    bs: { name: 'BS*', bi: true, side: 'smaller', tie: 'high', prune: true, key: (s, side, n, g, h, f) => f,
+      lb: (F, B) => Math.max(F.fmin, B.fmin) },
+    mm: { name: 'MM', bi: true, side: 'key', tie: 'low', key: (s, side, n, g, h, f) => Math.max(f, 2 * g),
+      lb: (F, B) => Math.max(Math.min(F.kmin, B.kmin), F.fmin, B.fmin, F.gmin + B.gmin + EPS) },
+    nbs: { name: 'NBS', bi: true, pair: true, side: 'pair', tie: 'low', key: (s, side, n, g, h, f) => f, lb: () => 0 },
+    balanced: { name: 'Balanced Bi-A*', bi: true, balanced: true, side: 'smaller', tie: 'high',
+      key: (s, side, n, g) => {
+        const p = (s.h_(0, n) - s.h_(1, n)) / 2;
+        return side === 0 ? g + p : g - p;
+      },
+      lb: (F, B) => F.kmin + B.kmin },
+    f2f: { name: 'Front-to-Front', bi: true, f2f: true, side: 'smaller', tie: 'high', key: (s, side, n, g, h, f) => f,
+      lb: (F, B) => Math.max(F.fmin, B.fmin) },
+  };
+  const ALGO_ORDER = ['mm', 'nbs', 'bs', 'bhpa', 'balanced', 'f2f', 'bidijkstra', 'astar'];
+
+  /* ---------- the search itself ---------- */
+
+  class Search {
+    constructor(problem, algo, sideRule) {
+      const n = problem.n;
+      this.p = problem;
+      this.algo = algo;
+      this.a = ALGOS[algo];
+      this.sideRule = sideRule || 'auto';
+      const f64 = (v) => new Float64Array(n).fill(v);
+      const i32 = () => new Int32Array(n).fill(-1);
+      this.g = [f64(Infinity), f64(Infinity)];
+      this.hc = [f64(-1), f64(-1)];
+      this.st = [new Uint8Array(n), new Uint8Array(n)];
+      this.par = [i32(), i32()];
+      this.ord = [i32(), i32()];
+      this.pos = [i32(), i32()];
+      this.open = [[], []];
+      this.U = Infinity;
+      this.meet = -1;
+      this.expanded = [0, 0];
+      this.nipped = 0;
+      this.lb = 0;
+      this.clb = 0;
+      this.pending = -1;
+      this.done = false;
+      this.status = 'running';
+      this.lastSide = -1;
+      this.lastNode = -1;
+      this.hExp = []; this.hLb = []; this.hU = []; this.hOF = []; this.hOB = [];
+
+      this.g[0][problem.start] = 0;
+      this.g[1][problem.goal] = 0;
+      this.pushOpen(0, problem.start);
+      if (this.a.bi) this.pushOpen(1, problem.goal);
+      this.record();
+    }
+
+    get stepCount() { return this.hExp.length - 1; }
+    get totalExpanded() { return this.expanded[0] + this.expanded[1]; }
+
+    pushOpen(side, n) {
+      this.st[side][n] = OPEN;
+      this.pos[side][n] = this.open[side].length;
+      this.open[side].push(n);
+    }
+
+    dropOpen(side, n, state) {
+      const list = this.open[side], i = this.pos[side][n], last = list.pop();
+      if (last !== n) { list[i] = last; this.pos[side][last] = i; }
+      this.pos[side][n] = -1;
+      this.st[side][n] = state;
+    }
+
+    record() {
+      this.hExp.push(this.totalExpanded);
+      this.hLb.push(this.lb);
+      this.hU.push(this.U);
+      this.hOF.push(this.open[0].length);
+      this.hOB.push(this.open[1].length);
+    }
+
+    h_(side, n) {
+      let v = this.hc[side][n];
+      if (v < 0) {
+        if (this.a.noH) v = 0;
+        else if (this.a.f2f) v = this.frontH(side, n);
+        else v = this.p.h(n, side === 0 ? this.p.goal : this.p.start);
+        this.hc[side][n] = v;
+      }
+      return v;
+    }
+
+    frontH(side, n) {
+      const o = 1 - side, list = this.open[o], go = this.g[o];
+      let best = Infinity;
+      for (let i = 0; i < list.length; i++) {
+        const m = list[i], v = go[m] + this.p.h(n, m);
+        if (v < best) best = v;
+      }
+      return best;
+    }
+
+    scan(side) {
+      const a = this.a, list = this.open[side], gs = this.g[side];
+      let fmin = Infinity, gmin = Infinity, kmin = Infinity, node = -1, nodeG = 0;
+      for (let i = 0; i < list.length; i++) {
+        const n = list[i], g = gs[n], h = this.h_(side, n), f = g + h;
+        if (f < fmin) fmin = f;
+        if (g < gmin) gmin = g;
+        const k = a.key(this, side, n, g, h, f);
+        const tied = Math.abs(k - kmin) <= TOL;
+        if ((!tied && k < kmin) || (tied && (a.tie === 'high' ? g > nodeG : g < nodeG))) {
+          kmin = k; node = n; nodeG = g;
+        }
+      }
+      return { fmin, gmin, kmin, node };
+    }
+
+    // Front-to-front estimates go stale. A stale value is still a valid lower
+    // bound, so only the node about to be chosen is refreshed.
+    refreshFront(side, info) {
+      for (;;) {
+        const n = info.node;
+        if (n < 0) return info;
+        const old = this.hc[side][n], fresh = this.frontH(side, n);
+        this.hc[side][n] = fresh;
+        if (fresh <= old + TOL) return this.scan(side);
+        info = this.scan(side);
+      }
+    }
+
+    chooseSide(F, B) {
+      if (!this.a.bi) return 0;
+      const rule = this.sideRule === 'auto' ? this.a.side : this.sideRule;
+      if (rule === 'smaller') return this.open[0].length <= this.open[1].length ? 0 : 1;
+      if (rule === 'alternate') return this.totalExpanded % 2;
+      return F.kmin <= B.kmin ? 0 : 1;
+    }
+
+    pickPair() {
+      const ready = [{}, {}];
+      const st = this;
+      function sweep(side) {
+        const list = st.open[side], gs = st.g[side];
+        let gBest = Infinity, node = -1, wait = Infinity;
+        for (let i = 0; i < list.length; i++) {
+          const n = list[i], f = gs[n] + st.h_(side, n);
+          if (f <= st.clb + TOL) { if (gs[n] < gBest) { gBest = gs[n]; node = n; } }
+          else if (f < wait) wait = f;
+        }
+        ready[side] = { gBest, node, wait };
+      }
+      for (;;) {
+        sweep(0); sweep(1);
+        const both = ready[0].node >= 0 && ready[1].node >= 0;
+        const sum = both ? ready[0].gBest + ready[1].gBest + EPS : Infinity;
+        if (both && sum <= this.clb + TOL) return [ready[0].node, ready[1].node];
+        const next = Math.min(ready[0].wait, ready[1].wait, sum);
+        if (next === Infinity) return null;
+        this.clb = Math.max(this.clb, next);
+      }
+    }
+
+    trim() {
+      for (let side = 0; side < 2; side++) {
+        const list = this.open[side];
+        for (let i = list.length - 1; i >= 0; i--) {
+          const n = list[i];
+          if (this.g[side][n] + this.h_(side, n) >= this.U - TOL) this.dropOpen(side, n, PRUNED);
+        }
+      }
+    }
+
+    expand(side, n) {
+      const a = this.a, gs = this.g[side], go = this.g[1 - side], st = this.st[side];
+      this.dropOpen(side, n, CLOSED);
+      this.ord[side][n] = this.totalExpanded;
+      this.expanded[side]++;
+      this.lastSide = side;
+      this.lastNode = n;
+      const list = this.p.adj[n];
+      for (let e = 0; e < list.length; e += 2) {
+        const v = list[e], ng = gs[n] + list[e + 1];
+        if (ng >= gs[v] - TOL) continue;
+        gs[v] = ng;
+        this.par[side][v] = n;
+        if (go[v] < Infinity && ng + go[v] < this.U - TOL) {
+          this.U = ng + go[v];
+          this.meet = v;
+          if (a.prune) this.trim();
+        }
+        if (a.prune && ng + this.h_(side, v) >= this.U - TOL) {
+          if (st[v] === OPEN) this.dropOpen(side, v, PRUNED); else st[v] = PRUNED;
+          continue;
+        }
+        if (st[v] !== OPEN) this.pushOpen(side, v);
+      }
+    }
+
+    finish() {
+      this.done = true;
+      this.status = this.U < Infinity ? 'found' : 'nopath';
+      this.record();
+      return false;
+    }
+
+    step() {
+      if (this.done) return false;
+      const a = this.a;
+
+      if (this.pending >= 0) {
+        const v = this.pending;
+        this.pending = -1;
+        if (this.st[1][v] === OPEN && this.U > this.clb + TOL) {
+          this.expand(1, v);
+          this.record();
+          return true;
+        }
+      }
+
+      for (;;) {
+        if (!this.open[0].length || (a.bi && !this.open[1].length)) return this.finish();
+
+        if (a.pair) {
+          const pair = this.pickPair();
+          this.lb = Math.max(this.lb, this.clb);
+          if (!pair || this.U <= this.clb + TOL) return this.finish();
+          this.expand(0, pair[0]);
+          this.pending = pair[1];
+          this.record();
+          return true;
+        }
+
+        const F = this.scan(0), B = a.bi ? this.scan(1) : null;
+        const side = this.chooseSide(F, B);
+        let chosen = side === 0 ? F : B;
+        if (a.f2f) chosen = this.refreshFront(side, chosen);
+        const bound = a.f2f
+          ? a.lb(side === 0 ? chosen : F, side === 1 ? chosen : B)
+          : a.lb(F, B);
+        this.lb = Math.max(this.lb, bound);
+        if (this.U <= this.lb + TOL) return this.finish();
+
+        const n = chosen.node;
+        if (a.prune && this.st[1 - side][n] === CLOSED) {
+          // Nipping: the other direction has already settled this node.
+          this.dropOpen(side, n, CLOSED);
+          this.nipped++;
+          continue;
+        }
+        this.expand(side, n);
+        this.record();
+        return true;
+      }
+    }
+
+    run() { while (this.step()); return this; }
+
+    path() {
+      if (this.meet < 0) return [];
+      const out = [];
+      for (let v = this.meet; v !== -1; v = this.par[0][v]) out.push(v);
+      out.reverse();
+      for (let v = this.par[1][this.meet]; v !== -1; v = this.par[1][v]) out.push(v);
+      return out;
+    }
+
+    pathCost() {
+      const path = this.path(), adj = this.p.adj;
+      let cost = 0;
+      for (let i = 1; i < path.length; i++) {
+        const list = adj[path[i - 1]];
+        let found = Infinity;
+        for (let e = 0; e < list.length; e += 2) if (list[e] === path[i]) found = list[e + 1];
+        cost += found;
+      }
+      return cost;
+    }
+  }
+
+  const api = { FREE, WALL, MUD, MUD_COST, NONE, OPEN, CLOSED, PRUNED, EPS, ALGOS, ALGO_ORDER, FEATURE_NAMES,
+    makeMap, makeProblem, exactCost, Search };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.BiHS = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+</script>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const { Search, makeMap, makeProblem, exactCost, ALGOS, ALGO_ORDER, WALL, MUD, OPEN, CLOSED, PRUNED } = BiHS;
+
+const INFO = {
+  mm: { pri: 'max(f, 2g)', stop: 'U ≤ max(C, fminF, fminB, gminF + gminB + ε)', note: 'Never expands a node past the halfway cost, so the frontiers are guaranteed to meet in the middle.', src: 'Holte et al., 2016' },
+  nbs: { pri: 'pair: max(fF, fB, gF + gB + ε)', stop: 'U ≤ lower bound of the best pair', note: 'Expands a pair of nodes each round. Within twice the minimum possible expansions, given the same information.', src: 'Chen et al., 2017' },
+  bs: { pri: 'f = g + h', stop: 'U ≤ max(fminF, fminB)', note: 'BHPA plus pruning: skips nodes the other side settled and drops nodes that cannot beat U.', src: 'Kwa, 1989' },
+  bhpa: { pri: 'f = g + h', stop: 'U ≤ max(fminF, fminB)', note: 'The original front-to-end method. Two independent A* searches, with no pruning.', src: 'Pohl, 1971' },
+  balanced: { pri: 'g ± (hF − hB) / 2', stop: 'U ≤ kminF + kminB', note: 'Averages the two heuristics so both sides see the same reduced edge costs, then stops like Dijkstra.', src: 'Ikeda et al., 1994' },
+  f2f: { pri: 'g + min over other frontier (h(n,m) + g(m))', stop: 'U ≤ max(fminF, fminB)', note: 'Aims at the other frontier, not its far endpoint. Often needs few expansions, but each one costs more to compute.', src: 'de Champeaux, 1983' },
+  bidijkstra: { pri: 'g', stop: 'U ≤ gminF + gminB + ε', note: 'Ignores the heuristic. Shows how much the heuristic is buying.', src: 'Nicholson, 1966' },
+  astar: { pri: 'f = g + h', stop: 'U ≤ fmin', note: 'One direction only. The number each bidirectional method has to beat.', src: 'Hart et al., 1968' },
+};
+const FEATURES = [
+  ['manhattan', 'Manhattan'], ['euclid', 'Euclidean'], ['chebyshev', 'Chebyshev'], ['octile', 'Octile'], ['landmark', 'Landmarks'],
+];
+const PRESETS = [
+  ['open', 'Open', 0, 0], ['scatter', 'Scatter', 28, 0], ['swamp', 'Swamp', 0, 45],
+  ['maze', 'Maze', 0, 0], ['rooms', 'Rooms', 0, 0], ['traps', 'Traps', 0, 0],
+];
+const RECIPES = [
+  { t: 'A trap around both ends', d: 'A* floods the pocket around the start. Front-to-Front gets out in far fewer expansions.', c: { preset: 'traps', algo: 'f2f' } },
+  { t: 'Meet exactly in the middle', d: 'MM cannot expand past half the path cost. Watch the Territory view split the map.', c: { preset: 'scatter', algo: 'mm', view: 'territory' } },
+  { t: 'When A* wins anyway', d: 'With a useful heuristic in Rooms, one direction often beats most two-way methods. Check the bars.', c: { preset: 'rooms', algo: 'bhpa' } },
+  { t: 'Buy speed with a worse path', d: 'Weight 1.6 inflates the estimate. The search ends early and the path can cost more.', c: { preset: 'scatter', algo: 'bhpa', weight: 1.6 } },
+  { t: 'An estimate that overestimates', d: 'Manhattan counts a diagonal as 2 when it costs 1.41, so the optimality guarantee is gone.', c: { preset: 'scatter', algo: 'bhpa', diag: true, features: ['manhattan'] } },
+  { t: 'Landmarks know about walls', d: 'Geometry cannot see maze walls. Landmark distances are measured through them.', c: { preset: 'maze', algo: 'bs', features: ['landmark'] } },
+];
+
+const S = {
+  preset: 'traps', cols: 51, noise: 0, mud: 0, seed: 7, map: null, P: null,
+  algo: 'mm', features: ['manhattan'], weight: 1, diag: false, side: 'auto',
+  view: 'frontier', tool: 'wall', playing: false, search: null, total: 1, finalS: null, truth: 0, field: null,
+  cs: 8, acc: 0, last: 0, dirty: true, needRebuild: false, cmpTimer: 0,
+};
+let C = {};
+const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+function readTheme() {
+  const css = getComputedStyle(document.documentElement);
+  for (const k of ['cell', 'gridline', 'wall', 'mud', 'f', 'b', 'both', 'path', 'casing', 'lb', 'ink', 'ink2', 'ink3', 'line', 'bg', 'panel']) C[k] = css.getPropertyValue('--' + k).trim();
+  S.dirty = true;
+  drawThumbs(); drawFeatureTiles(); drawLinks();
+}
+const fmt = (x) => x === Infinity ? '∞' : (Math.abs(x - Math.round(x)) < 0.005 ? String(Math.round(x)) : x.toFixed(1));
+const rowsFor = (cols) => { const r = Math.round(cols * 0.6); return r % 2 ? r : r + 1; };
+
+/* ---------- state changes ---------- */
+function regen(keep) {
+  S.map = makeMap(S.preset === 'scatter' || S.preset === 'swamp' ? 'open' : S.preset, S.cols, rowsFor(S.cols), S.seed, S.noise, S.mud);
+  resizeGrid();
+  rebuild(keep);
+  drawFeatureTiles();
+}
+function rebuild(keep) {
+  S.P = makeProblem(S.map, { diag: S.diag, features: S.features, weight: S.weight });
+  S.truth = exactCost(S.P);
+  S.field = null;
+  S.finalS = new Search(S.P, S.algo, S.side).run();
+  S.total = S.finalS.stepCount;
+  $('scrub').max = S.total;
+  seek(Math.min(keep || 0, S.total));
+  scheduleCompare();
+}
+function seek(k) {
+  S.search = new Search(S.P, S.algo, S.side);
+  while (S.search.stepCount < k && S.search.step());
+  S.dirty = true;
+}
+function setPlaying(on) {
+  if (on && S.search.done) seek(0);
+  S.playing = on; S.acc = 0; S.last = performance.now();
+  $('playicon').setAttribute('d', on ? 'M3 2h4v12H3zM9 2h4v12H9z' : 'M4 2l10 6-10 6z');
+  $('play').setAttribute('aria-label', on ? 'Pause' : 'Play');
+  $('pipe').classList.toggle('live', on);
+}
+function scheduleCompare() { clearTimeout(S.cmpTimer); S.cmpTimer = setTimeout(renderCompare, 120); }
+function renderCompare() {
+  const rows = ALGO_ORDER.map((a) => {
+    const s = S.algo === a && S.finalS ? S.finalS : new Search(S.P, a, S.side).run();
+    return { a, n: s.totalExpanded, U: s.U };
+  }).sort((x, y) => x.n - y.n);
+  const max = Math.max(1, ...rows.map((r) => r.n));
+  const box = $('cmp'); box.textContent = '';
+  for (const r of rows) {
+    const b = document.createElement('button');
+    b.setAttribute('aria-pressed', r.a === S.algo);
+    b.title = `${ALGOS[r.a].name}: ${r.n} expansions, path cost ${fmt(r.U)}`;
+    const name = document.createElement('span');
+    name.textContent = ALGOS[r.a].name;
+    if (r.U > S.truth + 1e-6 && r.U < Infinity) {
+      const off = document.createElement('span'); off.className = 'off'; off.textContent = `+${fmt(r.U - S.truth)} over shortest`; name.append(off);
+    }
+    const track = document.createElement('span'); track.className = 'track'; track.style.display = 'block';
+    const fill = document.createElement('span'); fill.className = 'fill'; fill.style.display = 'block'; fill.style.width = (r.n / max * 100) + '%'; track.append(fill);
+    const num = document.createElement('span'); num.className = 'num'; num.textContent = r.n;
+    b.append(name, track, num);
+    b.onclick = () => { S.algo = r.a; $('algo').value = r.a; syncAlgo(); rebuild(0); setPlaying(true); };
+    box.append(b);
+  }
+}
+function syncAlgo() {
+  $('fpri').textContent = INFO[S.algo].pri;
+  $('fstop').textContent = INFO[S.algo].stop;
+  $('side').disabled = S.algo === 'nbs' || S.algo === 'astar';
+  drawLinks(); S.dirty = true;
+}
+function updateNote() {
+  const el = $('hnote'); let text = '', warn = false;
+  const bad = S.diag && S.features.includes('manhattan');
+  if (!S.features.length || S.weight === 0) text = 'No estimate in use, so each side spreads out evenly like Dijkstra.';
+  else if (bad) { text = 'Manhattan counts a diagonal step as 2, but it costs 1.41. The path may not be the shortest.'; warn = true; }
+  else if (S.weight > 1) { text = `Estimates are multiplied by ${S.weight.toFixed(2)}. The search is faster, but the path may not be the shortest.`; warn = true; }
+  else if (S.features.length > 1) text = 'h is the largest of the selected features, which stays a safe lower estimate.';
+  else text = 'The search uses this estimate from both ends: distance to the goal going forward, and to the start going backward.';
+  el.textContent = text; el.classList.toggle('warn', warn);
+}
+function applyConfig(c) {
+  const p = PRESETS.find((x) => x[0] === (c.preset || S.preset));
+  S.preset = p[0]; S.noise = p[2]; S.mud = p[3]; S.cols = 51; S.seed = 7;
+  S.algo = c.algo || S.algo; S.weight = c.weight == null ? 1 : c.weight; S.diag = !!c.diag; S.side = 'auto';
+  S.features = c.features || (S.diag ? ['octile'] : ['manhattan']); S.view = c.view || 'frontier';
+  syncControls(); regen(0); setPlaying(true);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function syncControls() {
+  $('algo').value = S.algo; $('moves').value = S.diag ? '8' : '4'; $('side').value = S.side;
+  $('cols').value = S.cols; $('noise').value = S.noise; $('mud').value = S.mud; $('weight').value = S.weight;
+  $('colsv').textContent = `${S.cols} × ${rowsFor(S.cols)}`; $('noisev').textContent = S.noise + '%'; $('mudv').textContent = S.mud + '%'; $('weightv').textContent = S.weight.toFixed(2);
+  document.querySelectorAll('#views button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.v === S.view));
+  document.querySelectorAll('#presets .tile').forEach((b) => b.setAttribute('aria-pressed', b.dataset.v === S.preset));
+  document.querySelectorAll('#ftiles .tile').forEach((b) => b.setAttribute('aria-pressed', S.features.includes(b.dataset.v)));
+  syncAlgo(); updateNote(); drawFeatureTiles();
+}
+
+/* ---------- small canvases ---------- */
+function paint(canvas, w, h, fn) {
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  const ctx = canvas.getContext('2d'), img = ctx.createImageData(w, h), d = img.data;
+  for (let i = 0; i < w * h; i++) { const c = fn(i); d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2]; d[i * 4 + 3] = 255; }
+  ctx.putImageData(img, 0, 0);
+}
+const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+function drawThumbs() {
+  document.querySelectorAll('#presets .tile').forEach((b) => {
+    const p = PRESETS.find((x) => x[0] === b.dataset.v);
+    const m = makeMap(p[0] === 'scatter' || p[0] === 'swamp' ? 'open' : p[0], 31, 19, 7, p[2], p[3]);
+    const cell = hex(C.cell), wall = hex(C.wall), mud = hex(C.mud);
+    paint(b.querySelector('canvas'), m.w, m.h, (i) => m.cells[i] === WALL ? wall : m.cells[i] === MUD ? mud : cell);
+  });
+}
+function drawFeatureTiles() {
+  if (!S.P) return;
+  const m = S.map, cell = hex(C.cell), ink = hex(C.ink), wall = hex(C.wall);
+  document.querySelectorAll('#ftiles .tile').forEach((b) => {
+    const name = b.dataset.v, vals = new Float64Array(m.w * m.h); let max = 1e-9;
+    for (let i = 0; i < vals.length; i++) if (m.cells[i] !== WALL) { const v = S.P.feature(name, i, m.goal); vals[i] = v; if (v > max) max = v; }
+    paint(b.querySelector('canvas'), m.w, m.h, (i) => m.cells[i] === WALL ? wall : mix(ink, cell, Math.min(1, 0.12 + vals[i] / max * 0.88)));
+    const bad = b.querySelector('.bad');
+    bad.hidden = !(S.diag && name === 'manhattan');
+  });
+}
+function drawNeurons() {
+  const s = S.search, m = S.map, cell = hex(C.cell), wall = hex(C.wall);
+  [[0, 'cF', C.f], [1, 'cB', C.b]].forEach(([side, id, col]) => {
+    const c = hex(col), st = s.st[side], faded = mix(cell, c, 0.3);
+    paint($(id), m.w, m.h, (i) => m.cells[i] === WALL ? wall : st[i] === OPEN ? c : st[i] === CLOSED ? faded : cell);
+  });
+  $('oF').textContent = s.open[0].length; $('oB').textContent = s.open[1].length;
+}
+function drawLinks() {
+  const svg = $('links'), pipe = $('pipe');
+  if (!S.search || !C.f) return;
+  const R = pipe.getBoundingClientRect(), NS = 'http://www.w3.org/2000/svg';
+  svg.textContent = '';
+  const targets = [[$('cF'), C.f, 0]];
+  if (ALGOS[S.algo].bi) targets.push([$('cB'), C.b, 1]);
+  document.querySelectorAll('#ftiles .tile').forEach((t) => {
+    if (!S.features.includes(t.dataset.v)) return;
+    const a = t.getBoundingClientRect();
+    for (const [el, col] of targets) {
+      const b = el.getBoundingClientRect();
+      const x1 = a.right - R.left, y1 = a.top + a.height / 2 - R.top, x2 = b.left - R.left, y2 = b.top + b.height / 2 - R.top;
+      const mid = (x1 + x2) / 2, p = document.createElementNS(NS, 'path');
+      p.setAttribute('d', `M${x1} ${y1}C${mid} ${y1},${mid} ${y2},${x2} ${y2}`);
+      p.setAttribute('stroke', col); p.setAttribute('stroke-width', 0.8 + Math.min(S.weight, 2.5) * 1.1);
+      svg.append(p);
+    }
+  });
+}
+
+/* ---------- the grid ---------- */
+function resizeGrid() {
+  const canvas = $('grid'), dpr = Math.min(devicePixelRatio || 1, 2), m = S.map;
+  const cssW = canvas.parentElement.clientWidth - 26;
+  S.cs = Math.max(3, Math.floor(cssW * dpr / m.w));
+  canvas.width = S.cs * m.w; canvas.height = S.cs * m.h;
+  canvas.style.aspectRatio = `${m.w} / ${m.h}`;
+  S.dirty = true;
+}
+function heuristicField() {
+  if (S.field) return S.field;
+  const n = S.P.n, v = new Float64Array(n); let max = 1e-9;
+  for (let i = 0; i < n; i++) { if (S.map.cells[i] === WALL) continue; v[i] = (S.P.h(i, S.map.goal) - S.P.h(i, S.map.start)) / 2; max = Math.max(max, Math.abs(v[i])); }
+  return S.field = { v, max };
+}
+function renderGrid() {
+  const canvas = $('grid'), ctx = canvas.getContext('2d'), s = S.search, m = S.map, cs = S.cs, n = m.w * m.h;
+  const now = Math.max(1, s.totalExpanded);
+  let maxG = 1;
+  if (S.view === 'territory') for (let i = 0; i < n; i++) for (const d of [0, 1]) if (s.g[d][i] < Infinity && s.g[d][i] > maxG) maxG = s.g[d][i];
+  const field = S.view === 'field' ? heuristicField() : null;
+  ctx.globalAlpha = 1; ctx.fillStyle = C.cell; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < n; i++) {
+    const x = i % m.w, y = (i - x) / m.w, px = x * cs, py = y * cs, cell = m.cells[i];
+    if (cell === WALL) { ctx.globalAlpha = 1; ctx.fillStyle = C.wall; ctx.fillRect(px, py, cs, cs); continue; }
+    if (cell === MUD) { ctx.globalAlpha = 1; ctx.fillStyle = C.mud; ctx.fillRect(px, py, cs, cs); }
+    let col = null, alpha = 0;
+    if (S.view === 'frontier') {
+      const a = s.st[0][i], b = s.st[1][i];
+      if (a === OPEN) { col = C.f; alpha = 1; }
+      else if (b === OPEN) { col = C.b; alpha = 1; }
+      else if (a === CLOSED && b === CLOSED) { col = C.both; alpha = 0.8; }
+      else if (a === CLOSED) { col = C.f; alpha = 0.2 + 0.42 * Math.max(0, s.ord[0][i]) / now; }
+      else if (b === CLOSED) { col = C.b; alpha = 0.2 + 0.42 * Math.max(0, s.ord[1][i]) / now; }
+      else if (a === PRUNED || b === PRUNED) { col = C.ink3; alpha = 0.22; }
+    } else if (S.view === 'territory') {
+      const gf = s.st[0][i] ? s.g[0][i] : Infinity, gb = s.st[1][i] ? s.g[1][i] : Infinity;
+      if (gf < Infinity || gb < Infinity) {
+        const near = Math.min(gf, gb);
+        col = Math.abs(gf - gb) < 1.01 ? C.both : gf < gb ? C.f : C.b;
+        alpha = 0.22 + 0.68 * (1 - near / maxG);
+      }
+    } else {
+      const v = field.v[i] / field.max;
+      if (Math.abs(v) > 0.01) { col = v > 0 ? C.f : C.b; alpha = Math.abs(v) * 0.85; }
+    }
+    if (col) { ctx.globalAlpha = alpha; ctx.fillStyle = col; ctx.fillRect(px, py, cs, cs); }
+  }
+  ctx.globalAlpha = 1;
+  if (cs >= 8) {
+    ctx.strokeStyle = C.gridline; ctx.lineWidth = 1; ctx.globalAlpha = 0.55; ctx.beginPath();
+    for (let x = 1; x < m.w; x++) { ctx.moveTo(x * cs + .5, 0); ctx.lineTo(x * cs + .5, canvas.height); }
+    for (let y = 1; y < m.h; y++) { ctx.moveTo(0, y * cs + .5); ctx.lineTo(canvas.width, y * cs + .5); }
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  const center = (i) => { const x = i % m.w; return [(x + .5) * cs, ((i - x) / m.w + .5) * cs]; };
+  if (!s.done && s.lastNode >= 0) {
+    const x = s.lastNode % m.w, y = (s.lastNode - x) / m.w;
+    ctx.strokeStyle = C.path; ctx.lineWidth = Math.max(1.5, cs * .14); ctx.strokeRect(x * cs, y * cs, cs, cs);
+  }
+  if (s.meet >= 0) {
+    const path = s.path(), w = Math.max(2.5, cs * .3);
+    const line = () => { ctx.beginPath(); path.forEach((p, k) => { const [x, y] = center(p); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); };
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.setLineDash([]); ctx.strokeStyle = C.casing; ctx.lineWidth = w + Math.max(2, cs * .18); line(); ctx.stroke();
+    ctx.setLineDash(s.done ? [] : [cs * 1.1, cs * .9]); ctx.strokeStyle = C.path; ctx.lineWidth = w; line(); ctx.stroke(); ctx.setLineDash([]);
+    const [mx, my] = center(s.meet);
+    ctx.fillStyle = C.both; ctx.strokeStyle = C.casing; ctx.lineWidth = Math.max(2, cs * .14);
+    ctx.beginPath(); ctx.arc(mx, my, Math.max(5, cs * .55), 0, 7); ctx.fill(); ctx.stroke();
+  }
+  const r = Math.max(6, cs * .85);
+  let [x, y] = center(m.start);
+  ctx.fillStyle = C.f; ctx.strokeStyle = C.casing; ctx.lineWidth = Math.max(2, cs * .18);
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.stroke();
+  [x, y] = center(m.goal);
+  ctx.fillStyle = C.b;
+  ctx.beginPath(); ctx.moveTo(x, y - r * 1.2); ctx.lineTo(x + r * 1.2, y); ctx.lineTo(x, y + r * 1.2); ctx.lineTo(x - r * 1.2, y); ctx.closePath(); ctx.fill(); ctx.stroke();
+}
+const LEGENDS = {
+  frontier: [[`var(--f)`, 'Start and forward frontier'], [`var(--b)`, 'Goal and backward frontier'], [`var(--both)`, 'Finished by both'], [`var(--mud)`, 'Mud']],
+  territory: [[`var(--f)`, 'Reached first from the start'], [`var(--b)`, 'Reached first from the goal'], [`var(--both)`, 'Equal cost from both']],
+  field: [[`var(--f)`, 'Nearer the start by estimate'], [`var(--b)`, 'Nearer the goal by estimate']],
+};
+let legendFor = '';
+function renderLegend() {
+  if (legendFor === S.view) return;
+  legendFor = S.view;
+  const box = $('legend'); box.textContent = '';
+  for (const [c, t] of LEGENDS[S.view]) { const s = document.createElement('span'), i = document.createElement('i'); i.style.background = c; s.append(i, t); box.append(s); }
+}
+
+/* ---------- charts ---------- */
+const hover = { bound: -1, open: -1 };
+function drawChart(canvas, spec) {
+  const dpr = Math.min(devicePixelRatio || 1, 2), W = canvas.clientWidth, H = canvas.clientHeight;
+  if (!W) return;
+  if (canvas.width !== W * dpr || canvas.height !== H * dpr) { canvas.width = W * dpr; canvas.height = H * dpr; }
+  const ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  const L = 34, R = 6, T = 8, B = 16, total = Math.max(1, spec.total);
+  const X = (i) => L + i / total * (W - L - R), Y = (v) => T + (1 - (v - spec.min) / Math.max(1e-9, spec.max - spec.min)) * (H - T - B);
+  ctx.font = '11px "IBM Plex Mono", monospace'; ctx.textBaseline = 'middle';
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.fillStyle = C.ink3; ctx.textAlign = 'right';
+  for (const v of [spec.min, spec.max]) { ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(W - R, Y(v)); ctx.stroke(); ctx.fillText(fmt(v), L - 5, Y(v)); }
+  ctx.textAlign = 'left'; ctx.fillText('0', L, H - 7); ctx.textAlign = 'right'; ctx.fillText(String(total), W - R, H - 7);
+  if (spec.ref != null && spec.ref < Infinity) {
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = C.ink3; ctx.beginPath(); ctx.moveTo(L, Y(spec.ref)); ctx.lineTo(W - R, Y(spec.ref)); ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.lineWidth = 2; ctx.lineJoin = 'round';
+  for (const s of spec.series) {
+    ctx.strokeStyle = s.color; ctx.beginPath(); let pen = false;
+    for (let i = spec.from || 0; i < s.data.length; i++) {
+      const v = s.data[i];
+      if (v === Infinity) { pen = false; continue; }
+      pen ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)); pen = true;
+    }
+    ctx.stroke();
+  }
+  const finite = spec.series.map((s) => ({ s, v: s.data[s.data.length - 1], i: s.data.length - 1 })).filter((e) => e.v < Infinity).sort((a, b) => b.v - a.v);
+  finite.forEach((e, k) => {
+    ctx.fillStyle = e.s.color; ctx.beginPath(); ctx.arc(X(e.i), Y(e.v), 3, 0, 7); ctx.fill();
+  });
+  if (spec.hover >= 0) {
+    ctx.strokeStyle = C.ink2; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(spec.hover), T); ctx.lineTo(X(spec.hover), H - B); ctx.stroke();
+  }
+}
+function attachChart(id, wrapId, key, label) {
+  const canvas = $(id), wrap = $(wrapId), tip = document.createElement('div');
+  tip.className = 'tip'; tip.hidden = true; wrap.append(tip);
+  const idx = (e) => { const r = canvas.getBoundingClientRect(); return Math.round(Math.max(0, Math.min(1, (e.clientX - r.left - 34) / (r.width - 40))) * S.total); };
+  canvas.addEventListener('pointermove', (e) => {
+    const k = idx(e); hover[key] = k; S.dirty = true;
+    tip.hidden = false; tip.textContent = label(Math.min(k, S.finalS.stepCount));
+    const r = canvas.getBoundingClientRect(), x = e.clientX - r.left;
+    tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, x - tip.offsetWidth / 2)) + 'px';
+  });
+  canvas.addEventListener('pointerleave', () => { hover[key] = -1; tip.hidden = true; S.dirty = true; });
+  canvas.addEventListener('click', (e) => { setPlaying(false); seek(idx(e)); });
+}
+function renderCharts() {
+  const s = S.search, f = S.finalS;
+  let min = Infinity, max = -Infinity;
+  // Step 0 is a placeholder bound of 0, recorded before any node is scored.
+  for (let i = 1; i < f.hLb.length; i++) { const v = f.hLb[i]; if (v < min) min = v; if (v > max) max = v; }
+  for (const v of f.hU) if (v < Infinity) { if (v < min) min = v; if (v > max) max = v; }
+  if (S.truth < Infinity) { min = Math.min(min, S.truth); max = Math.max(max, S.truth); }
+  if (min === Infinity) { min = 0; max = 1; }
+  drawChart($('chartBound'), { from: 1, total: S.total, min: Math.floor(min), max: Math.max(Math.ceil(max), Math.floor(min) + 1), ref: S.truth, hover: hover.bound,
+    series: [{ color: C.ink, data: s.hU }, { color: C.lb, data: s.hLb }] });
+  drawChart($('chartOpen'), { total: S.total, min: 0, max: Math.max(1, ...f.hOF, ...f.hOB), hover: hover.open,
+    series: [{ color: C.f, data: s.hOF }, { color: C.b, data: s.hOB }] });
+}
+
+/* ---------- readouts ---------- */
+function narrate(s) {
+  const name = ALGOS[S.algo].name;
+  if (s.done && s.status === 'nopath') return `${name} ran out of nodes. The start and goal aren't connected.`;
+  if (s.done) {
+    const over = s.U - S.truth;
+    return over > 1e-6
+      ? `${name} stopped after ${s.totalExpanded} expansions with a path of cost ${fmt(s.U)}, which is ${fmt(over)} more than the shortest path.`
+      : `${name} proved in ${s.totalExpanded} expansions that cost ${fmt(s.U)} is the shortest path.`;
+  }
+  if (s.stepCount === 0) return `Press play, or step through one expansion at a time.`;
+  const x = s.lastNode % S.map.w, y = (s.lastNode - x) / S.map.w;
+  const where = `The ${s.lastSide ? 'backward' : 'forward'} side expanded (${x}, ${y}).`;
+  if (s.U === Infinity) return `${where} The frontiers haven't connected yet.`;
+  return `${where} A path of cost ${fmt(s.U)} exists, but the lower bound is ${fmt(s.lb)}, so something cheaper might still exist.`;
+}
+function renderReadouts() {
+  const s = S.search;
+  $('count').textContent = s.totalExpanded.toLocaleString('en-US');
+  $('mU').textContent = fmt(s.U); $('mLB').textContent = fmt(s.lb); $('mGap').textContent = s.U === Infinity ? '∞' : fmt(Math.max(0, s.U - s.lb)); $('mTrue').textContent = fmt(S.truth);
+  $('expF').textContent = `forward ${s.expanded[0]}`; $('expB').textContent = `backward ${s.expanded[1]}`;
+  const t = Math.max(1, s.totalExpanded);
+  $('balF').style.flex = `${s.expanded[0] / t} 1 0`; $('balB').style.flex = `${s.expanded[1] / t} 1 0`;
+  $('scrub').value = s.stepCount; $('scrubv').textContent = `${s.stepCount} / ${S.total}`;
+  $('narrate').textContent = narrate(s);
+  const v = $('verdict'); let text = '', col = 'var(--ink2)';
+  if (s.done && s.status === 'found') {
+    if (s.U > S.truth + 1e-6) { text = `Not optimal, +${fmt(s.U - S.truth)}`; col = 'var(--warn)'; }
+    else { text = 'Optimal path proven'; col = 'var(--lb)'; }
+  } else if (s.done) text = 'No path exists';
+  else text = s.U < Infinity ? 'Candidate found, proving it' : 'Searching';
+  v.innerHTML = ''; const b = document.createElement('span'); b.className = 'badge'; b.style.color = col; b.textContent = text; v.append(b);
+  drawNeurons();
+}
+
+/* ---------- main loop ---------- */
+const stepsPerSecond = () => Math.round(3 * Math.pow(10, +$('speed').value / 100 * 2.9));
+function frame(t) {
+  if (S.needRebuild) { S.needRebuild = false; rebuild(S.search.stepCount); }
+  if (S.playing) {
+    S.acc += Math.min(100, t - S.last) / 1000 * stepsPerSecond(); S.last = t;
+    let moved = false;
+    while (S.acc >= 1 && !S.search.done) { S.search.step(); S.acc -= 1; moved = true; }
+    if (moved) S.dirty = true;
+    if (S.search.done) setPlaying(false);
+  }
+  if (S.dirty) { S.dirty = false; renderGrid(); renderLegend(); renderReadouts(); renderCharts(); }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- input ---------- */
+function bindMapEdit() {
+  const canvas = $('grid');
+  let mode = null, prev = -1;
+  const cellAt = (e) => {
+    const r = canvas.getBoundingClientRect(), m = S.map;
+    const x = Math.max(0, Math.min(m.w - 1, Math.floor((e.clientX - r.left) / r.width * m.w)));
+    const y = Math.max(0, Math.min(m.h - 1, Math.floor((e.clientY - r.top) / r.height * m.h)));
+    return y * m.w + x;
+  };
+  const paintCell = (i) => {
+    const m = S.map;
+    if (i === m.start || i === m.goal) return;
+    m.cells[i] = S.tool === 'wall' ? WALL : S.tool === 'mud' ? MUD : 0;
+  };
+  const paintLine = (a, b) => {
+    const m = S.map, ax = a % m.w, ay = (a - ax) / m.w, bx = b % m.w, by = (b - bx) / m.w;
+    const n = Math.max(Math.abs(ax - bx), Math.abs(ay - by), 1);
+    for (let k = 0; k <= n; k++) paintCell(Math.round(ay + (by - ay) * k / n) * m.w + Math.round(ax + (bx - ax) * k / n));
+  };
+  canvas.addEventListener('pointerdown', (e) => {
+    const i = cellAt(e), m = S.map;
+    canvas.setPointerCapture(e.pointerId);
+    setPlaying(false);
+    if (i === m.start) mode = 'start'; else if (i === m.goal) mode = 'goal';
+    else { mode = 'paint'; paintCell(i); S.needRebuild = true; }
+    prev = i;
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!mode) return;
+    const i = cellAt(e), m = S.map;
+    if (i === prev) return;
+    if (mode === 'paint') paintLine(prev, i);
+    else if (m.cells[i] !== WALL && i !== m.start && i !== m.goal) { m[mode] = i; }
+    prev = i; S.needRebuild = true;
+  });
+  const end = () => { mode = null; };
+  canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
+}
+function bindControls() {
+  for (const p of PRESETS) {
+    const b = document.createElement('button'); b.className = 'tile'; b.dataset.v = p[0];
+    b.innerHTML = `<canvas></canvas><span>${p[1]}</span>`;
+    b.onclick = () => { S.preset = p[0]; S.noise = p[2]; S.mud = p[3]; syncControls(); regen(0); setPlaying(true); };
+    $('presets').append(b);
+  }
+  for (const [v, label] of FEATURES) {
+    const b = document.createElement('button'); b.className = 'tile ftile'; b.dataset.v = v;
+    b.innerHTML = `<canvas></canvas><span>${label}</span><i class="bad" hidden title="Overestimates with diagonal moves">!</i>`;
+    b.querySelector('.bad').style.fontStyle = 'normal';
+    b.onclick = () => {
+      S.features = S.features.includes(v) ? S.features.filter((x) => x !== v) : [...S.features, v];
+      syncControls(); rebuild(S.search.stepCount); drawLinks();
+    };
+    $('ftiles').append(b);
+  }
+  for (const r of RECIPES) {
+    const b = document.createElement('button'); b.className = 'recipe';
+    const t = document.createElement('b'), d = document.createElement('span'); t.textContent = r.t; d.textContent = r.d; b.append(t, d);
+    b.onclick = () => applyConfig(r.c);
+    $('recipes').append(b);
+  }
+  const tbody = $('algotable');
+  for (const a of ALGO_ORDER) {
+    const tr = document.createElement('tr'), i = INFO[a];
+    for (const [text, code] of [[ALGOS[a].name, 0], [i.pri, 1], [i.stop, 1], [i.note, 0], [i.src, 0]]) {
+      const td = document.createElement('td');
+      if (code) { const c = document.createElement('code'); c.textContent = text; td.append(c); } else td.textContent = text;
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
+  $('play').onclick = () => setPlaying(!S.playing);
+  $('step').onclick = () => { setPlaying(false); S.search.step(); S.dirty = true; };
+  $('reset').onclick = () => { setPlaying(false); seek(0); };
+  $('scrub').oninput = (e) => { setPlaying(false); seek(+e.target.value); };
+  $('algo').onchange = (e) => { S.algo = e.target.value; syncAlgo(); rebuild(0); setPlaying(true); };
+  $('moves').onchange = (e) => {
+    S.diag = e.target.value === '8'; updateNote(); drawLinks(); rebuild(S.search.stepCount); drawFeatureTiles();
+  };
+  $('side').onchange = (e) => { S.side = e.target.value; rebuild(0); };
+  $('cols').oninput = (e) => { S.cols = +e.target.value; syncControls(); regen(0); };
+  $('noise').oninput = (e) => { S.noise = +e.target.value; syncControls(); regen(S.search.stepCount); };
+  $('mud').oninput = (e) => { S.mud = +e.target.value; syncControls(); regen(S.search.stepCount); };
+  $('weight').oninput = (e) => { S.weight = +e.target.value; syncControls(); rebuild(S.search.stepCount); drawLinks(); };
+  $('shuffle').onclick = () => { S.seed = (S.seed * 31 + 17) % 100003; regen(0); setPlaying(true); };
+  const seg = (id, key) => $(id).addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    S[key] = b.dataset.v;
+    $(id).querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    S.dirty = true;
+  });
+  seg('tools', 'tool'); seg('views', 'view');
+  document.addEventListener('keydown', (e) => {
+    if (['INPUT', 'SELECT', 'BUTTON'].includes(e.target.tagName) && e.key === ' ') return;
+    if (['INPUT', 'SELECT'].includes(e.target.tagName)) return;
+    if (e.key === ' ') { e.preventDefault(); setPlaying(!S.playing); }
+    else if (e.key === 'ArrowRight') { setPlaying(false); S.search.step(); S.dirty = true; }
+    else if (e.key === 'ArrowLeft') { setPlaying(false); seek(Math.max(0, S.search.stepCount - 1)); }
+    else if (e.key.toLowerCase() === 'r') { setPlaying(false); seek(0); }
+  });
+  attachChart('chartBound', 'wrapBound', 'bound', (k) => `step ${k}  U ${fmt(S.finalS.hU[k])}  LB ${fmt(S.finalS.hLb[k])}`);
+  attachChart('chartOpen', 'wrapOpen', 'open', (k) => `step ${k}  F ${S.finalS.hOF[k]}  B ${S.finalS.hOB[k]}`);
+  new ResizeObserver(() => { resizeGrid(); drawLinks(); S.dirty = true; }).observe($('grid').parentElement);
+  new ResizeObserver(drawLinks).observe($('pipe'));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+  new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+}
+
+bindControls();
+bindMapEdit();
+C.f = '';
+readTheme();
+regen(0);
+syncControls();
+{ // Open mid-proof: the frontiers have connected but the search isn't finished.
+  const met = S.finalS.hU.findIndex((u) => u < Infinity);
+  seek(met < 0 ? 0 : Math.round(met + (S.total - met) * 0.35));
+}
+readTheme();
+requestAnimationFrame((t) => { S.last = t; frame(t); });
+</script>
+
+</html>
