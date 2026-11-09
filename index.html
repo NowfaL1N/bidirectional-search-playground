@@ -1,883 +1,527 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-type="software" data-radius="soft" data-ground="sky" data-buttons="solid" data-motion>
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Bidirectional Search Playground</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<title>Bidirectional Search Playground: visualiser for students</title>
+<meta name="description" content="Watch two searches grow from opposite ends of a map, meet, and prove the shortest route. Eight algorithms and six maps, free in your browser.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Bidirectional Search Playground: visualiser for students">
+<meta property="og:description" content="Eight algorithms and six maps. Draw walls, press play and watch the proof close.">
+<meta property="og:image" content="share.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0a0d14">
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wdth,wght@85..100,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/ui/cards.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="assets/layout/layout.css">
 <style>
-/* Layout: an instrument bench. Inputs on the left, the search field in the middle, readings on the right. */
 :root {
-  --bg: #E9EDF2; --panel: #F7F9FB; --ink: #16202E; --ink2: #4A5667; --ink3: #5F6C7E; --line: #D3DAE3;
-  --cell: #FFFFFF; --gridline: #E6EBF1; --wall: #2A3545; --mud: #CDB98F;
-  --f: #D9480F; --b: #1C5FD4; --both: #7A3FB0; --path: #101826; --casing: #FFFFFF; --lb: #0B7F74; --warn: #9A5B00;
-  --display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
-  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", Consolas, monospace;
+  --p-bg: #0a0d14; --p-surface: #131824; --p-ink: #e9edf3; --p-muted: #8891a1;
+  --p-accent: #5ab9fc; --p-accent-ink: #0a0d14; --p-action: #5ab9fc; --p-action-ink: #0a0d14;
+  --p-inv-bg: #e9edf3; --p-inv-surface: #d7dbe1; --p-inv-ink: #0a0d14; --p-inv-muted: #54575f;
+  --p-inv-accent: #0a0d14; --p-inv-accent-ink: #e9edf3; --p-inv-action: #0a0d14; --p-inv-action-ink: #e9edf3;
+  --font-display: "IBM Plex Sans", system-ui, sans-serif;
+  --font-text: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 500;
+  --display-tracking: -0.025em;
+  --display-tracking-xl: -0.035em;
+  --ly-scale: 0.98;
+  /* the colours of the search itself */
+  --viz-cell: #171e2c; --viz-gridline: #202a3a; --viz-wall: #4c5a73; --viz-mud: #6e5c3b;
+  --viz-f: #ff8a3d; --viz-b: #5ab9fc; --viz-both: #f5c84b; --viz-path: #ffffff; --viz-casing: #0a0d14; --viz-lb: #4fd1c5; --viz-warn: #f0b35a;
+  --viz-ink: #e9edf3; --viz-ink2: #b4bccb; --viz-ink3: #8891a1; --viz-line: #2a3345; --viz-bg: #0a0d14; --viz-panel: #131824;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0F141B; --panel: #171E28; --ink: #E7ECF3; --ink2: #AEB9C7; --ink3: #93A0B1; --line: #2B3543;
-  --cell: #222B38; --gridline: #2A3442; --wall: #05080C; --mud: #6A5A3A;
-  --f: #E8651F; --b: #4A8EF2; --both: #B98CF0; --path: #FFFFFF; --casing: #0F141B; --lb: #4FD1C5; --warn: #F0B35A;
-  color-scheme: dark;
-} }
-:root[data-theme="dark"] {
-  --bg: #0F141B; --panel: #171E28; --ink: #E7ECF3; --ink2: #AEB9C7; --ink3: #93A0B1; --line: #2B3543;
-  --cell: #222B38; --gridline: #2A3442; --wall: #05080C; --mud: #6A5A3A;
-  --f: #E8651F; --b: #4A8EF2; --both: #B98CF0; --path: #FFFFFF; --casing: #0F141B; --lb: #4FD1C5; --warn: #F0B35A;
-  color-scheme: dark;
-}
-* { box-sizing: border-box; }
-body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--body); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px 40px; }
-h1, h2, h3, p { margin: 0; }
-button, select, input { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--b); outline-offset: 2px; }
-canvas { display: block; }
+</style>
+<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+<script src="assets/backgrounds/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="assets/moments/moments.js">
+<link rel="modulepreload" href="assets/moments/lib.js">
+<link rel="modulepreload" href="assets/moments/pinned-chapters/moment.js">
+<style>
+/* hero: the lit frame, orange from one side and blue from the other, as the two searches are */
+.hero__art { background:
+  radial-gradient(70% 60% at 8% 92%, color-mix(in oklab, var(--viz-f) 34%, transparent), transparent 72%),
+  radial-gradient(70% 60% at 96% 6%, color-mix(in oklab, var(--viz-b) 38%, transparent), transparent 72%),
+  var(--p-surface); }
+.hero__proof { font-size: var(--t-small); color: var(--muted); }
+.win { display: flex; flex-direction: column; height: calc(100% - var(--s-8) + var(--ly-cut)); background: #0e131d; border: 1px solid var(--viz-line); border-radius: var(--r-md); box-shadow: 0 24px 60px -24px rgb(0 0 0 / .7); overflow: hidden; }
+.win__bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 44px; flex: none; padding: 0 var(--ly-cut-room) 0 16px; border-bottom: 1px solid var(--viz-line); font: 500 13px/1 var(--font-mono); color: var(--viz-ink2); }
+.win__body { position: relative; flex: 1; min-height: 0; margin: 12px var(--ly-cut-room) calc(var(--ly-cut) + 12px) 12px; }
+.win__body canvas { position: absolute; inset: 0; margin: auto; max-width: 100%; max-height: 100%; border-radius: var(--r-sm); }
+.win .loop-pause { position: static; width: 28px; height: 28px; display: grid; place-items: center; background: none; border: 1px solid var(--viz-line); border-radius: 50%; color: var(--viz-ink2); cursor: pointer; padding: 0; }
+.win .loop-pause svg { width: 12px; height: 12px; fill: currentColor; }
+.hero__art > .ly-piece--note { left: var(--s-6); bottom: var(--s-6); width: 280px; z-index: 2; background: #0e131d; border: 1px solid var(--viz-line); border-radius: var(--r-md); padding: 14px 16px; box-shadow: 0 18px 40px -16px rgb(0 0 0 / .8); }
+.note-line { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 14px; color: var(--viz-ink3); transition: color .25s ease; }
+.note-line i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--viz-ink3); flex: none; transition: background .25s ease, border-color .25s ease; }
+.note-line.is-on { color: var(--viz-ink); }
+.note-line.is-on i { background: var(--viz-both); border-color: var(--viz-both); }
+.note-line b { margin-left: auto; font: 500 13px var(--font-mono); color: var(--viz-ink2); }
+@media (max-width: 1023px) { .hero__art > .ly-piece--note { left: var(--s-4); bottom: var(--s-4); width: 250px; } .win { height: calc(100% - var(--s-6) + var(--ly-cut)); } }
+@media (max-width: 639px) { .win { height: calc(100% - var(--s-4) + var(--ly-cut)); } }
 
-.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; padding-bottom: 12px; }
-.brand { min-width: 0; flex: 1 1 250px; }
-.brand h1 { font: 700 23px/1.1 var(--display); letter-spacing: -.01em; text-wrap: balance; }
-.brand p { color: var(--ink2); font-size: 13px; }
-.transport { display: flex; align-items: center; gap: 8px; }
-.round { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); cursor: pointer; display: grid; place-items: center; }
-.round:hover { border-color: var(--ink3); }
-.round svg { width: 15px; height: 15px; fill: currentColor; }
-#play { width: 52px; height: 52px; background: var(--ink); color: var(--bg); border: 0; }
-#play svg { width: 20px; height: 20px; }
-.counter { margin-left: 8px; }
-.counter b { display: block; font: 700 25px/1 var(--display); font-variant-numeric: tabular-nums; min-width: 66px; }
-.label { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); }
-.params { display: flex; flex-wrap: wrap; gap: 10px 14px; }
-.param { display: grid; gap: 2px; min-width: 0; }
-select { background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 5px 7px; max-width: 170px; }
-input[type=range] { width: 100%; accent-color: var(--ink2); margin: 0; }
+/* explainer frames */
+[data-moment="pinned-chapters"] .mo-pc__visual > canvas { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: var(--r-sm); }
+main [data-moment="pinned-chapters"] .mo-pc__visual.mo-pc__visual--lit, main [data-moment="pinned-chapters"] .mo-pc__visuals.frame { background: var(--p-surface); }
+[data-moment="pinned-chapters"]:not(.is-live) .mo-pc__visual > canvas { max-height: 30svh; }
 
-.board { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); grid-template-areas: "stage" "output" "map" "feat"; align-items: start; }
-@media (min-width: 760px) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "stage stage" "map feat" "output output"; } }
-@media (min-width: 1180px) { .board { grid-template-columns: 236px minmax(0, 1fr) 276px; grid-template-areas: "map stage output" "feat stage output"; grid-template-rows: auto 1fr; } }
-@media (min-width: 1560px) { .board { grid-template-columns: 200px 250px minmax(0, 1fr) 300px; grid-template-areas: "map feat stage output"; grid-template-rows: auto; } }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-width: 0; display: grid; gap: 11px; align-content: start; }
-.panel h2 { font: 600 12px/1.2 var(--body); letter-spacing: .06em; text-transform: uppercase; }
-.map { grid-area: map; } .feat { grid-area: feat; } .stage { grid-area: stage; } .output { grid-area: output; }
+/* the playground */
+.play { display: grid; grid-template-columns: 276px minmax(0, 1fr) 292px; background: var(--p-surface); border: 1px solid var(--viz-line); border-radius: var(--r-lg); overflow: hidden; margin-top: var(--s-6); min-height: 0; color: var(--viz-ink); font-size: 14px; line-height: 1.4; }
+.play button, .play select, .play input { font: inherit; color: inherit; }
+.rail { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.rail--l { border-right: 1px solid var(--viz-line); order: 1; }
+.rail--r { border-left: 1px solid var(--viz-line); order: 3; }
+.rtabs { display: flex; flex: none; border-bottom: 1px solid var(--viz-line); }
+.rtabs button { flex: 1; min-height: 44px; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; font-weight: 500; color: var(--viz-ink3); transition: color .15s ease; }
+.rtabs button:hover { color: var(--viz-ink); }
+.rtabs button[aria-selected=true] { color: var(--viz-ink); border-bottom-color: var(--p-action); }
+.rpanel { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: grid; gap: 12px; align-content: start; scrollbar-width: thin; scrollbar-color: var(--viz-line) transparent; }
+.rpanel[hidden] { display: none; }
+.lab { font-size: 13px; font-weight: 500; color: var(--viz-ink3); }
+
+.algos { display: grid; gap: 4px; }
+.algos button { display: grid; gap: 1px; width: 100%; text-align: left; background: none; border: 1px solid transparent; border-radius: var(--r-sm); padding: 6px 10px; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+.algos button:hover { background: rgb(255 255 255 / .04); }
+.algos button[aria-checked=true] { background: color-mix(in oklab, var(--p-action) 14%, transparent); border-color: color-mix(in oklab, var(--p-action) 60%, transparent); }
+.algos b { font-weight: 500; }
+.algos span { font-size: 13px; color: var(--viz-ink3); line-height: 1.3; }
 
 .presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.tile { background: none; border: 1px solid var(--line); border-radius: 5px; padding: 3px; cursor: pointer; display: grid; gap: 2px; font-size: 11.5px; text-align: center; min-width: 0; color: var(--ink2); }
-.tile canvas { width: 100%; image-rendering: pixelated; border-radius: 2px; }
-.tile:hover { border-color: var(--ink3); }
-.tile[aria-pressed=true] { border: 1px solid var(--ink); box-shadow: inset 0 0 0 1px var(--ink); color: var(--ink); font-weight: 600; }
+.tile { background: none; border: 1px solid var(--viz-line); border-radius: var(--r-sm); padding: 3px; cursor: pointer; display: grid; gap: 3px; font-size: 13px; text-align: center; min-width: 0; color: var(--viz-ink2); transition: border-color .15s ease; }
+.tile canvas { display: block; width: 100%; image-rendering: pixelated; border-radius: 3px; }
+.tile:hover { border-color: var(--viz-ink3); }
+.tile[aria-pressed=true] { border-color: var(--p-action); color: var(--viz-ink); font-weight: 500; }
 .slider { display: grid; gap: 2px; }
-.slider .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--ink2); }
-.slider output { font-family: var(--mono); font-size: 12px; color: var(--ink); }
-.btn { background: none; border: 1px solid var(--line); border-radius: 5px; padding: 5px 9px; cursor: pointer; font-size: 13px; }
-.btn:hover { border-color: var(--ink3); }
+.slider .row { display: flex; justify-content: space-between; align-items: baseline; color: var(--viz-ink2); }
+.slider output { font: 13px var(--font-mono); color: var(--viz-ink); }
+.play input[type=range] { width: 100%; accent-color: var(--p-action); margin: 0; height: 24px; }
+.mini { background: none; border: 1px solid var(--viz-line); border-radius: var(--r-sm); min-height: 36px; padding: 0 12px; cursor: pointer; transition: border-color .15s ease; }
+.mini:hover { border-color: var(--viz-ink3); }
+.play select { width: 100%; background: var(--viz-cell); border: 1px solid var(--viz-line); border-radius: var(--r-sm); padding: 6px 8px; min-height: 36px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pair label { display: grid; gap: 3px; min-width: 0; }
 
-.pipe { position: relative; display: grid; grid-template-columns: 92px minmax(26px, 1fr) 76px; }
+.pipe { position: relative; display: grid; grid-template-columns: 88px minmax(24px, 1fr) 76px; }
 .pipe svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .pipe path { fill: none; }
 .pipe.live path { stroke-dasharray: 5 5; animation: flow .7s linear infinite; }
 @keyframes flow { to { stroke-dashoffset: -10; } }
-@media (prefers-reduced-motion: reduce) { .pipe.live path { animation: none; stroke-dasharray: none; } }
-.ftiles { display: grid; gap: 5px; grid-column: 1; z-index: 1; }
+.ftiles { display: grid; gap: 4px; grid-column: 1; z-index: 1; }
 .ftile { position: relative; }
-.ftile canvas { height: 38px; }
+.ftile canvas { height: 26px; }
 .ftile:not([aria-pressed=true]) canvas { opacity: .4; }
-.ftile .bad { position: absolute; top: 5px; right: 5px; width: 15px; height: 15px; border-radius: 50%; background: var(--warn); color: var(--panel); font: 700 11px/15px var(--body); }
+.ftile .bad { position: absolute; top: 4px; right: 4px; width: 15px; height: 15px; border-radius: 50%; background: var(--viz-warn); color: #0a0d14; font: 500 11px/15px var(--font-text); }
 .neurons { grid-column: 3; display: flex; flex-direction: column; justify-content: space-around; z-index: 1; }
-.neuron { text-align: center; font-size: 11.5px; color: var(--ink2); display: grid; gap: 3px; }
-.neuron canvas { width: 100%; image-rendering: pixelated; border-radius: 5px; border: 1px solid var(--line); background: var(--cell); }
-.neuron b { font: 500 12px var(--mono); color: var(--ink); }
-.note { font-size: 12.5px; color: var(--ink2); min-height: 36px; }
-.note.warn { color: var(--warn); }
+.neuron { text-align: center; font-size: 13px; color: var(--viz-ink2); display: grid; gap: 2px; }
+.neuron canvas { display: block; width: 100%; image-rendering: pixelated; border-radius: var(--r-sm); border: 1px solid var(--viz-line); background: var(--viz-cell); }
+.neuron b { font: 500 13px var(--font-mono); color: var(--viz-ink); }
+.hnote { font-size: 13px; color: var(--viz-ink2); }
+.hnote.warn { color: var(--viz-warn); }
 
-.stagehead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
-.seg button { border: 0; background: none; padding: 4px 10px; cursor: pointer; font-size: 13px; color: var(--ink2); }
-.seg button + button { border-left: 1px solid var(--line); }
-.seg button[aria-pressed=true] { background: var(--ink); color: var(--bg); }
-#grid { width: 100%; touch-action: none; border-radius: 4px; cursor: crosshair; background: var(--cell); }
-.legend { display: flex; flex-wrap: wrap; gap: 4px 13px; font-size: 12px; color: var(--ink2); }
-.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
-.scrub { display: flex; gap: 10px; align-items: center; }
-.scrub output { font: 12px var(--mono); white-space: nowrap; }
-#narrate { font-size: 13.5px; min-height: 40px; }
-.formula { border-top: 1px solid var(--line); padding-top: 9px; display: grid; gap: 4px 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
-.formula code, td code { font: 12.5px var(--mono); }
-.formula div > span { display: block; }
+.centre { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 10px 12px; gap: 8px; order: 2; }
+.bar-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 10px; flex: none; }
+.seg { display: inline-flex; border: 1px solid var(--viz-line); border-radius: var(--r-sm); overflow: hidden; }
+.seg button { border: 0; background: none; padding: 0 10px; min-height: 32px; cursor: pointer; font-size: 13px; color: var(--viz-ink2); transition: background .15s ease; }
+.seg button:hover { background: rgb(255 255 255 / .05); }
+.seg button + button { border-left: 1px solid var(--viz-line); }
+.seg button[aria-pressed=true] { background: var(--viz-ink); color: #0a0d14; font-weight: 500; }
+.stagebox { position: relative; flex: 1 1 0; min-height: 0; border-radius: var(--r-sm); }
+#grid { position: absolute; inset: 0; margin: auto; max-width: 100%; max-height: 100%; touch-action: none; border-radius: var(--r-sm); cursor: crosshair; background: var(--viz-cell); display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 3px 13px; font-size: 13px; color: var(--viz-ink2); }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.legend-row { display: flex; justify-content: space-between; gap: 12px; flex: none; min-height: 18px; }
+#cellinfo { font: 13px var(--font-mono); color: var(--viz-ink3); white-space: nowrap; }
+.transport { display: flex; align-items: center; gap: 8px; flex: none; }
+.round { width: 36px; height: 36px; flex: none; border-radius: 50%; border: 1px solid var(--viz-line); background: none; cursor: pointer; display: grid; place-items: center; color: var(--viz-ink); transition: border-color .15s ease, transform .1s ease; }
+.round:hover { border-color: var(--viz-ink3); }
+.round:active, #play:active { transform: scale(.94); }
+.round svg, #play svg { width: 14px; height: 14px; fill: currentColor; }
+#play { height: 44px; min-width: 96px; flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border: 0; border-radius: var(--r-btn); background: var(--p-action); color: var(--p-action-ink); font-size: 16px; font-weight: 500; cursor: pointer; transition: transform .1s ease, filter .15s ease; }
+#play:hover { filter: brightness(1.08); }
+.scrubwrap { flex: 1; min-width: 60px; display: flex; align-items: center; gap: 8px; }
+.scrubwrap output { font: 13px var(--font-mono); white-space: nowrap; color: var(--viz-ink2); }
+.speed { display: flex; align-items: center; gap: 6px; width: 120px; flex: none; }
+.talk { flex: none; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: var(--r-sm); background: rgb(255 255 255 / .035); }
+.talk p { margin: 0; flex: 1; font-size: 14px; }
+.talk.is-tour { background: color-mix(in oklab, var(--viz-both) 14%, transparent); }
+.talk__nav { display: none; align-items: center; gap: 6px; flex: none; }
+.talk.is-tour .talk__nav { display: flex; }
+.talk__nav span { font: 13px var(--font-mono); color: var(--viz-ink2); white-space: nowrap; }
+.coached { outline: 2px solid var(--viz-both); outline-offset: 2px; border-radius: var(--r-sm); }
 
-.metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-.metric b { display: block; font: 700 22px/1.1 var(--display); font-variant-numeric: tabular-nums; }
-.badge { font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 10px; border: 1px solid currentColor; display: inline-block; }
+.phases { display: grid; gap: 2px; list-style: none; margin: 0; padding: 0; }
+.phases button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 34px; background: none; border: 0; border-radius: var(--r-sm); padding: 2px 8px; cursor: pointer; text-align: left; color: var(--viz-ink3); transition: background .15s ease, color .15s ease; }
+.phases button:hover { background: rgb(255 255 255 / .05); }
+.phases i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--viz-line); flex: none; transition: background .2s ease, border-color .2s ease; }
+.phases .was { color: var(--viz-ink2); }
+.phases .was i { background: var(--viz-ink3); border-color: var(--viz-ink3); }
+.phases .now { color: var(--viz-ink); font-weight: 500; background: rgb(255 255 255 / .05); }
+.phases .now i { background: var(--viz-both); border-color: var(--viz-both); box-shadow: 0 0 0 3px color-mix(in oklab, var(--viz-both) 30%, transparent); }
+.metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 8px; }
+.metric b { display: block; font: 500 22px/1.15 var(--font-display); font-variant-numeric: tabular-nums; }
+.metric span { font-size: 13px; color: var(--viz-ink3); line-height: 1.25; display: block; }
+.meter { height: 8px; border-radius: 4px; background: var(--viz-line); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--viz-lb); border-radius: 4px; width: 0; }
+.meter-head { display: flex; justify-content: space-between; font-size: 13px; color: var(--viz-ink2); margin-bottom: 4px; }
+.meter-head output { font-family: var(--font-mono); }
 .balance { display: flex; height: 8px; gap: 2px; }
-.balance i { display: block; height: 8px; border-radius: 2px; min-width: 2px; transition: flex-grow .1s; }
-.split { display: flex; justify-content: space-between; font: 12px var(--mono); color: var(--ink2); margin-top: 3px; }
+.balance i { display: block; height: 8px; border-radius: 2px; min-width: 2px; }
+.split { display: flex; justify-content: space-between; font: 13px var(--font-mono); color: var(--viz-ink2); margin-top: 4px; }
+#verdict { font-size: 14px; font-weight: 500; }
 .chart { position: relative; }
-.chart canvas { width: 100%; height: 118px; cursor: crosshair; }
-.chart.small canvas { height: 78px; }
-.tip { position: absolute; top: 0; pointer-events: none; background: var(--ink); color: var(--bg); font: 11.5px/1.4 var(--mono); padding: 3px 7px; border-radius: 4px; white-space: nowrap; }
-.cmp { display: grid; gap: 1px; }
-.cmp button { display: grid; grid-template-columns: 96px minmax(0, 1fr) 44px; gap: 7px; align-items: center; background: none; border: 0; border-radius: 4px; padding: 3px 4px; cursor: pointer; text-align: left; font-size: 12.5px; }
-.cmp button:hover { background: var(--bg); }
-.cmp button[aria-pressed=true] { font-weight: 600; background: var(--bg); }
-.cmp .track { height: 8px; }
-.cmp .fill { height: 8px; border-radius: 0 3px 3px 0; background: var(--ink3); min-width: 2px; }
-.cmp [aria-pressed=true] .fill { background: var(--ink); }
-.cmp .num { font: 12px var(--mono); text-align: right; }
-.cmp .off { display: block; font: 10.5px var(--body); color: var(--warn); }
+.chart canvas { display: block; width: 100%; height: 150px; cursor: crosshair; }
+.chart.small canvas { height: 110px; }
+.tip { position: absolute; top: 0; pointer-events: none; background: var(--viz-ink); color: #0a0d14; font: 13px/1.4 var(--font-mono); padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+.tip[hidden] { display: none; }
+.cmp { display: grid; gap: 2px; }
+.cmp button { display: grid; grid-template-columns: 84px minmax(0, 1fr) 44px; gap: 6px; align-items: center; background: none; border: 0; border-radius: var(--r-sm); padding: 6px 4px; cursor: pointer; text-align: left; font-size: 13px; transition: background .15s ease; }
+.cmp button:hover, .cmp button[aria-pressed=true] { background: rgb(255 255 255 / .06); }
+.cmp button[aria-pressed=true] { font-weight: 500; }
+.cmp .fill { height: 8px; display: block; border-radius: 0 3px 3px 0; background: var(--viz-ink3); min-width: 2px; }
+.cmp [aria-pressed=true] .fill { background: var(--p-action); }
+.cmp .num { font: 13px var(--font-mono); text-align: right; }
+.cmp .off { display: block; font-size: 13px; color: var(--viz-warn); font-weight: 400; }
+.keys { font-size: 13px; color: var(--viz-ink3); }
+kbd { font: 13px var(--font-mono); border: 1px solid var(--viz-line); border-radius: 3px; padding: 0 4px; }
+@media (prefers-reduced-motion: reduce) { .pipe.live path { animation: none; stroke-dasharray: none; } }
+@media (min-width: 1024px) and (max-width: 1279px) { .play { grid-template-columns: 236px minmax(0, 1fr) 248px; } .speed, #cellinfo { display: none; } }
 
-.guide { max-width: 1000px; margin: 34px auto 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
-.guide h2 { font: 700 22px/1.15 var(--display); text-wrap: balance; margin-bottom: 8px; }
-.guide p { max-width: 68ch; margin-bottom: 8px; }
-.tablewrap { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 13px; }
-th { text-align: left; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink3); font-weight: 500; }
-th, td { border-bottom: 1px solid var(--line); padding: 7px 12px 7px 0; vertical-align: top; }
-.recipes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
-.recipe { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; cursor: pointer; display: grid; gap: 3px; }
-.recipe:hover { border-color: var(--ink3); }
-.recipe b { font-weight: 600; }
-.recipe span { color: var(--ink2); font-size: 13px; }
-.keys { color: var(--ink3); font-size: 12.5px; }
-kbd { font: 11.5px var(--mono); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
+@media (max-width: 1023px) {
+  .play { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .centre { grid-column: 1 / -1; order: 1; border-bottom: 1px solid var(--viz-line); }
+  .rail--l { order: 2; } .rail--r { order: 3; }
+  .stagebox { flex: none; aspect-ratio: var(--gr, 51 / 31); }
+  .rpanel { overflow: visible; }
+  .play.fill { flex: none; height: auto; }
+  .rail, .centre, .rpanel { min-height: auto; }
+}
+@media (max-width: 639px) {
+  .play { grid-template-columns: minmax(0, 1fr); }
+  .rail--l { border-right: 0; border-bottom: 1px solid var(--viz-line); } .rail--r { border-left: 0; }
+  .speed, #cellinfo { display: none; }
+  .talk { flex-wrap: wrap; }
+}
+
+/* experiments and race */
+.try-card .panel { --p-h: 148px; height: 148px; min-height: 0; background: var(--viz-cell); padding: 0; overflow: hidden; }
+.try-card .panel canvas { display: block; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+@media (max-width: 639px) { .try-card .panel { --p-h: 96px; height: 96px; } }
+.race { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gutter, 24px); }
+.lane { display: grid; gap: 8px; background: none; border: 0; padding: 0; text-align: left; color: var(--ink); cursor: pointer; min-width: 0; }
+.lane canvas { display: block; width: 100%; aspect-ratio: var(--gr, 51 / 31); image-rendering: pixelated; border-radius: var(--r-md); border: 1px solid var(--viz-line); transition: border-color .15s ease; }
+.lane:hover canvas { border-color: var(--p-action); }
+.lane__row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.lane__row b { font-size: var(--t-body); font-weight: 500; }
+.lane__row span { font: 14px var(--font-mono); color: var(--muted); white-space: nowrap; }
+.lane.first .lane__row span { color: var(--viz-both); }
+@media (max-width: 1023px) { .lane__row { flex-direction: column; gap: 0; } .lane__row span { white-space: normal; } }
+@media (min-width: 640px) and (max-width: 1023px) { .race { gap: 16px; } .lane canvas { aspect-ratio: 1 / 1; object-fit: cover; } #experiments .try-card { grid-column: auto / span 6; } #experiments .try-card .panel { --p-h: 120px; height: 120px; } }
+@media (max-width: 639px) { .race { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } main > section#playground { height: auto; min-height: 100lvh; } header.nav:not(.is-open) .nav__actions { display: none; } header.nav:not(.is-open) .nav__toggle { margin-left: auto; } #race { --hm: 2; } main [data-moment="pinned-chapters"] .mo-pc__visual.mo-pc__visual--lit { aspect-ratio: 16 / 9; padding: 8px; } [data-moment="pinned-chapters"]:not(.is-live) .mo-pc__visual > canvas { max-height: 20svh; } }
+
+/* the algorithm table */
+.atable { width: 100%; border-collapse: collapse; }
+.atable th { text-align: left; font-size: var(--t-label); font-weight: 500; color: var(--muted); padding: 0 16px 10px 0; }
+.atable td { padding: 11px 16px 11px 0; border-top: 1px solid var(--line); vertical-align: top; }
+.atable td:nth-child(2) { white-space: nowrap; }
+.atable canvas { display: block; width: 72px; aspect-ratio: var(--gr, 51 / 31); image-rendering: pixelated; border-radius: 4px; }
+.atable code { font: 14px/1.5 var(--font-mono); color: var(--viz-ink2); }
+.atable td small { display: block; font-size: var(--t-small); color: var(--muted); }
+@media (max-width: 899px) {
+  .atable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .atable, .atable tbody, .atable tr, .atable td { display: block; }
+  .atable tr { border-top: 1px solid var(--line); padding: 12px 0; }
+  .atable td { border: 0; padding: 2px 0; }
+  .atable td:nth-child(2) { white-space: normal; }
+}
+@media (max-width: 899px) { .atable td:nth-child(n+4) { display: none; } .atable tr { display: grid; grid-template-columns: 88px minmax(0, 1fr); column-gap: 12px; } .atable td:nth-child(1) { grid-row: 1 / span 2; } }
+@media (min-width: 640px) and (max-width: 899px) { .atable tr { grid-template-columns: 96px 170px minmax(0, 1fr); } .atable td:nth-child(1) { grid-row: auto; } }
 </style>
-
-<header class="bar">
-  <div class="brand">
-    <h1>Bidirectional Search Playground</h1>
-    <p>Two searches, one from each end. Change anything and see what it does to the meeting point.</p>
-  </div>
-  <div class="transport">
-    <button class="round" id="reset" title="Back to the first step (R)" aria-label="Back to the first step"><svg viewBox="0 0 16 16"><path d="M3 2h2v12H3zM14 2v12L6 8z"/></svg></button>
-    <button class="round" id="play" title="Play or pause (Space)" aria-label="Play"><svg viewBox="0 0 16 16"><path id="playicon" d="M4 2l10 6-10 6z"/></svg></button>
-    <button class="round" id="step" title="One step forward (right arrow)" aria-label="One step forward"><svg viewBox="0 0 16 16"><path d="M2 2l9 6-9 6zM12 2h2v12h-2z"/></svg></button>
-    <div class="counter"><b id="count">0</b><span class="label">Expansions</span></div>
-  </div>
-  <div class="params">
-    <label class="param"><span class="label">Algorithm</span>
-      <select id="algo">
-        <optgroup label="Bidirectional heuristic">
-          <option value="mm">MM</option><option value="nbs">NBS</option><option value="bs">BS*</option>
-          <option value="bhpa">BHPA</option><option value="balanced">Balanced Bi-A*</option><option value="f2f">Front-to-Front</option>
-        </optgroup>
-        <optgroup label="Baselines"><option value="bidijkstra">Bidirectional Dijkstra</option><option value="astar">A* (one direction)</option></optgroup>
-      </select></label>
-    <label class="param"><span class="label">Moves</span>
-      <select id="moves"><option value="4">4 directions</option><option value="8">8 directions</option></select></label>
-    <label class="param"><span class="label">Which side next</span>
-      <select id="side"><option value="auto">Algorithm default</option><option value="alternate">Alternate</option><option value="smaller">Smaller frontier</option><option value="key">Lowest priority</option></select></label>
-    <label class="param" style="width:128px"><span class="label">Speed</span>
-      <input type="range" id="speed" min="0" max="100" value="55" aria-label="Playback speed"></label>
+</head>
+<body>
+<!-- type: software
+     deal: hero collage, nav nav-centre, close close-type, footer footer-dark, rhythm surface-pairs, buttons solid, mark wordmark, palette blue-black-cornflower, pairing plex
+     moments: pinned-chapters in #how -->
+<header class="nav nav--centre">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Skip to content</a>
+    <a class="nav__logo" href="#top">BiSearch Playground</a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item"><a class="nav__link" href="#how">Basics</a></div>
+      <div class="nav__item"><a class="nav__link" href="#playground">Playground</a></div>
+      <div class="nav__item"><a class="nav__link" href="#experiments">Experiments</a></div>
+      <div class="nav__item"><a class="nav__link" href="#algorithms">Algorithms</a></div>
+      <div class="nav__item"><a class="nav__link" href="#race">Race</a></div>
+    </nav>
+    <div class="nav__actions"><a class="btn btn--primary" href="#playground" data-start>Start the search</a></div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
   </div>
 </header>
 
-<main class="board">
-  <section class="panel map" aria-label="Map">
-    <h2>Map</h2>
-    <div class="presets" id="presets"></div>
-    <div class="slider"><div class="row"><label for="cols">Width in cells</label><output id="colsv"></output></div><input type="range" id="cols" min="21" max="81" step="2" value="51"></div>
-    <div class="slider"><div class="row"><label for="noise">Random walls</label><output id="noisev"></output></div><input type="range" id="noise" min="0" max="40" value="0"></div>
-    <div class="slider"><div class="row"><label for="mud">Mud (cost 5)</label><output id="mudv"></output></div><input type="range" id="mud" min="0" max="70" value="0"></div>
-    <button class="btn" id="shuffle">Shuffle this map</button>
+<main id="top">
+  <section class="hero hero--collage" data-enter aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text grid hero__grid">
+      <div class="hero__text span-5">
+        <h1 id="hero-h">Bidirectional search playground for students</h1>
+        <p class="hero__lead">Two searches leave opposite ends of a map and grow until they meet. Press play, draw your own walls and compare eight algorithms in your browser.</p>
+        <div class="btn-row"><a class="btn btn--primary" href="#playground" data-start>Start the search<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a><a class="btn btn--secondary" href="#how">See how it works</a></div>
+        <p class="hero__proof">Every route checked against Dijkstra on 24,192 test runs.</p>
+      </div>
+      <div class="hero__art span-6 start-7" role="img" aria-label="A live search on a map: an orange region grows from the start, a blue region grows from the goal, and a route appears where they meet">
+        <div class="ly-piece ly-piece--main win" aria-hidden="true">
+          <div class="win__bar"><span id="heroTitle">MM on a scattered map</span><button class="loop-pause" id="heroPause" type="button" aria-label="Pause the demo"><svg viewBox="0 0 16 16"><path id="heroPauseIcon" d="M3 2h4v12H3zM9 2h4v12H9z"/></svg></button></div>
+          <div class="win__body" id="heroBody"><canvas id="heroGrid"></canvas></div>
+        </div>
+        <div class="ly-piece ly-piece--note" aria-hidden="true">
+          <div class="note-line" id="hn0"><i></i>Searching both ends<b id="heroCount">0</b></div>
+          <div class="note-line" id="hn1"><i></i>Frontiers connected<b id="heroU"></b></div>
+          <div class="note-line" id="hn2"><i></i>Shortest route proven</div>
+        </div>
+      </div>
+    </div></div>
   </section>
 
-  <section class="panel feat" aria-label="Heuristic features">
-    <h2>Heuristic features</h2>
-    <div class="pipe" id="pipe">
-      <svg id="links" aria-hidden="true"></svg>
-      <div class="ftiles" id="ftiles"></div>
-      <div class="neurons">
-        <div class="neuron" id="nF"><canvas id="cF"></canvas><span>Forward open</span><b id="oF">0</b></div>
-        <div class="neuron" id="nB"><canvas id="cB"></canvas><span>Backward open</span><b id="oB">0</b></div>
+  <section class="section" id="how" style="--h: 2" data-moment="pinned-chapters" aria-labelledby="how-h">
+    <div class="wrap mo-pc__grid">
+      <div class="mo-pc__text">
+        <h2 id="how-h">How bidirectional search finds a route</h2>
+        <ol class="mo-pc__steps">
+          <li class="mo-pc__step">
+            <h3>Two searches start</h3>
+            <p>One search leaves the start and one leaves the goal. Each spreads outward, the most promising cells first.</p>
+            <figure class="mo-pc__visual mo-pc__visual--lit"><canvas id="how0" role="img" aria-label="Orange and blue regions growing from opposite sides of a map"></canvas></figure>
+          </li>
+          <li class="mo-pc__step">
+            <h3>The frontiers meet</h3>
+            <p>The first contact gives a real route from start to goal. A shorter one may still exist.</p>
+            <figure class="mo-pc__visual mo-pc__visual--lit"><canvas id="how1" role="img" aria-label="The two regions touching, with a dashed route through the meeting point"></canvas></figure>
+          </li>
+          <li class="mo-pc__step">
+            <h3>The search closes the gap</h3>
+            <p>A lower bound climbs towards the best route found. While the two numbers differ, a cheaper route is still possible.</p>
+            <figure class="mo-pc__visual mo-pc__visual--lit"><canvas id="how2" role="img" aria-label="The regions spreading further while the dashed route stays in place"></canvas></figure>
+          </li>
+          <li class="mo-pc__step">
+            <h3>The shortest route is proven</h3>
+            <p>When the numbers match, the search stops. The route on the map is the shortest one there is.</p>
+            <figure class="mo-pc__visual mo-pc__visual--lit"><canvas id="how3" role="img" aria-label="The finished search with a solid shortest route"></canvas></figure>
+          </li>
+        </ol>
       </div>
-    </div>
-    <div class="slider"><div class="row"><label for="weight">Heuristic weight w</label><output id="weightv"></output></div><input type="range" id="weight" min="0" max="2.5" step="0.05" value="1"></div>
-    <p class="note" id="hnote"></p>
-  </section>
-
-  <section class="panel stage" aria-label="Search field">
-    <div class="stagehead">
-      <div class="seg" id="tools" role="group" aria-label="Drawing tool">
-        <button data-v="wall" aria-pressed="true">Wall</button><button data-v="mud" aria-pressed="false">Mud</button><button data-v="erase" aria-pressed="false">Erase</button>
-      </div>
-      <div class="seg" id="views" role="group" aria-label="What the grid shows">
-        <button data-v="frontier" aria-pressed="true">Frontiers</button><button data-v="territory" aria-pressed="false">Territory</button><button data-v="field" aria-pressed="false">Heuristic</button>
-      </div>
-    </div>
-    <canvas id="grid" aria-label="Grid showing the forward and backward searches. Draw on it to add walls or mud, or drag the start and goal."></canvas>
-    <div class="legend" id="legend"></div>
-    <div class="scrub">
-      <input type="range" id="scrub" min="0" max="1" value="0" aria-label="Step in the search">
-      <output id="scrubv"></output>
-    </div>
-    <p id="narrate" aria-live="polite"></p>
-    <div class="formula">
-      <div><span class="label">Picks the node with lowest</span><code id="fpri"></code></div>
-      <div><span class="label">Stops when</span><code id="fstop"></code></div>
+      <div class="mo-pc__visuals frame"></div>
     </div>
   </section>
 
-  <section class="panel output" aria-label="Output">
-    <h2>Output</h2>
-    <div class="metrics">
-      <div class="metric"><b id="mU">∞</b><span class="label">Best path U</span></div>
-      <div class="metric"><b id="mLB">0</b><span class="label">Lower bound</span></div>
-      <div class="metric"><b id="mGap">∞</b><span class="label">Gap U − LB</span></div>
-      <div class="metric"><b id="mTrue">0</b><span class="label">True shortest</span></div>
+  <section class="section" id="playground" aria-labelledby="play-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <h2 class="span-5" id="play-h">Search playground with eight algorithms</h2>
+        <p class="span-6 start-7">Pick an algorithm, press Play and drag the start or goal to change the problem. New here? <button class="link" id="tourBtn" type="button" style="background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer">Start the guided tour</button></p>
+      </div>
+      <div class="ui play fill" aria-label="Search playground">
+        <div class="rail rail--l">
+          <div class="rtabs" role="tablist" aria-label="Settings">
+            <button role="tab" id="t-algo" aria-controls="p-algo" aria-selected="true" type="button">Algorithm</button>
+            <button role="tab" id="t-map" aria-controls="p-map" aria-selected="false" type="button">Map</button>
+            <button role="tab" id="t-est" aria-controls="p-est" aria-selected="false" type="button">Estimate</button>
+          </div>
+          <div class="rpanel" role="tabpanel" id="p-algo" aria-labelledby="t-algo"><div class="algos" id="algos" role="radiogroup" aria-label="Algorithm"></div></div>
+          <div class="rpanel" role="tabpanel" id="p-map" aria-labelledby="t-map" hidden>
+            <div class="presets" id="presets"></div>
+            <div class="slider"><div class="row"><label for="cols">Width in cells</label><output id="colsv"></output></div><input type="range" id="cols" min="21" max="81" step="2" value="51"></div>
+            <div class="slider"><div class="row"><label for="noise">Random walls</label><output id="noisev"></output></div><input type="range" id="noise" min="0" max="40" value="0"></div>
+            <div class="slider"><div class="row"><label for="mud">Mud, costs 5 to cross</label><output id="mudv"></output></div><input type="range" id="mud" min="0" max="70" value="0"></div>
+            <button class="mini" id="shuffle" type="button">Shuffle this map</button>
+          </div>
+          <div class="rpanel" role="tabpanel" id="p-est" aria-labelledby="t-est" hidden>
+            <p class="hnote">The estimate guesses the distance left. Turn tiles on or off to change what each side knows.</p>
+            <div class="pipe" id="pipe">
+              <svg id="links" aria-hidden="true"></svg>
+              <div class="ftiles" id="ftiles"></div>
+              <div class="neurons">
+                <div class="neuron" id="nF"><canvas id="cF"></canvas><span>Forward</span><b id="oF">0</b></div>
+                <div class="neuron" id="nB"><canvas id="cB"></canvas><span>Backward</span><b id="oB">0</b></div>
+              </div>
+            </div>
+            <div class="slider"><div class="row"><label for="weight">Estimate weight</label><output id="weightv"></output></div><input type="range" id="weight" min="0" max="2.5" step="0.05" value="1"></div>
+            <p class="hnote" id="hnote"></p>
+            <div class="pair">
+              <label><span class="lab">Moves</span><select id="moves"><option value="4">4 directions</option><option value="8">8 directions</option></select></label>
+              <label><span class="lab">Which side next</span><select id="side"><option value="auto">Default</option><option value="alternate">Alternate</option><option value="smaller">Smaller frontier</option><option value="key">Lowest priority</option></select></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="centre">
+          <div class="bar-top">
+            <div class="seg" id="tools" role="group" aria-label="Drawing tool"><button type="button" data-v="wall" aria-pressed="true">Wall</button><button type="button" data-v="mud" aria-pressed="false">Mud</button><button type="button" data-v="erase" aria-pressed="false">Erase</button></div>
+            <span id="cellinfo">Hover a cell for its costs</span>
+            <div class="seg" id="views" role="group" aria-label="What the map shows"><button type="button" data-v="frontier" aria-pressed="true">Frontiers</button><button type="button" data-v="territory" aria-pressed="false">Territory</button><button type="button" data-v="field" aria-pressed="false">Estimate</button></div>
+          </div>
+          <div class="stagebox" id="stagebox"><canvas id="grid" aria-label="Map showing the forward and backward searches. Draw on it to add walls or mud, or drag the start and goal."></canvas></div>
+          <div class="legend-row"><div class="legend" id="legend"></div></div>
+          <div class="transport">
+            <button class="round" id="reset" type="button" title="Back to the first step (R)" aria-label="Back to the first step"><svg viewBox="0 0 16 16"><path d="M3 2h2v12H3zM14 2v12L6 8z"/></svg></button>
+            <button id="play" type="button" title="Play or pause (Space)" aria-label="Play"><svg viewBox="0 0 16 16"><path id="playicon" d="M4 2l10 6-10 6z"/></svg><span id="playword">Play</span></button>
+            <button class="round" id="step" type="button" title="One step forward (right arrow)" aria-label="One step forward"><svg viewBox="0 0 16 16"><path d="M2 2l9 6-9 6zM12 2h2v12h-2z"/></svg></button>
+            <div class="scrubwrap"><label class="lab" for="scrub">Step</label><input type="range" id="scrub" min="0" max="1" value="0" aria-label="Step in the search"><output id="scrubv"></output></div>
+            <label class="speed"><span class="lab">Speed</span><input type="range" id="speed" min="0" max="100" value="55" aria-label="Playback speed"></label>
+          </div>
+          <div class="talk" id="talk">
+            <p id="narrate" aria-live="polite"></p>
+            <div class="talk__nav"><span id="tourPos"></span><button class="mini" id="tourBack" type="button">Back</button><button class="mini" id="tourNext" type="button">Next</button></div>
+          </div>
+        </div>
+
+        <div class="rail rail--r">
+          <div class="rtabs" role="tablist" aria-label="Results">
+            <button role="tab" id="t-prog" aria-controls="p-prog" aria-selected="true" type="button">Progress</button>
+            <button role="tab" id="t-chart" aria-controls="p-chart" aria-selected="false" type="button">Charts</button>
+            <button role="tab" id="t-cmp" aria-controls="p-cmp" aria-selected="false" type="button">Compare</button>
+          </div>
+          <div class="rpanel" role="tabpanel" id="p-prog" aria-labelledby="t-prog">
+            <ol class="phases" id="phases"></ol>
+            <div class="metrics" id="metrics">
+              <div class="metric" title="U: the cheapest complete route found so far."><b id="mU">∞</b><span>Best route so far</span></div>
+              <div class="metric" title="LB: no route can cost less than this."><b id="mLB">0</b><span>No route is cheaper than</span></div>
+              <div class="metric" title="Cells each search has finished with."><b id="count">0</b><span>Cells expanded</span></div>
+              <div class="metric" title="The answer from a full Dijkstra run, for reference."><b id="mTrue">0</b><span>True shortest</span></div>
+            </div>
+            <div id="meterbox"><div class="meter-head"><span>Proof closed</span><output id="mGap">0%</output></div><div class="meter"><i id="meter"></i></div></div>
+            <div><div class="balance"><i id="balF" style="background:var(--viz-f)"></i><i id="balB" style="background:var(--viz-b)"></i></div><div class="split"><span id="expF"></span><span id="expB"></span></div></div>
+            <p id="verdict"></p>
+          </div>
+          <div class="rpanel" role="tabpanel" id="p-chart" aria-labelledby="t-chart" hidden>
+            <div><div class="lab">The proof closing</div><div class="legend"><span><i style="background:var(--viz-ink)"></i>Best route</span><span><i style="background:var(--viz-lb)"></i>Lower bound</span></div><div class="chart" id="wrapBound"><canvas id="chartBound" role="img" aria-label="Upper and lower bound over the search"></canvas></div></div>
+            <div><div class="lab">Frontier size</div><div class="chart small" id="wrapOpen"><canvas id="chartOpen" role="img" aria-label="Forward and backward frontier size over the search"></canvas></div></div>
+            <p class="lab">Rule used: picks lowest <code id="fpri"></code>, stops when <code id="fstop"></code></p>
+          </div>
+          <div class="rpanel" role="tabpanel" id="p-cmp" aria-labelledby="t-cmp" hidden>
+            <div class="lab">Cells expanded on this map, fewest first</div>
+            <div class="cmp" id="cmp"></div>
+            <p class="keys"><kbd>Space</kbd> play <kbd>→</kbd> step <kbd>←</kbd> back <kbd>R</kbd> reset</p>
+          </div>
+        </div>
+      </div>
     </div>
-    <div id="verdict"></div>
-    <div>
-      <div class="balance"><i id="balF" style="background:var(--f)"></i><i id="balB" style="background:var(--b)"></i></div>
-      <div class="split"><span id="expF"></span><span id="expB"></span></div>
+  </section>
+
+  <section class="section ground-surface" id="experiments" aria-labelledby="exp-h">
+    <div class="wrap">
+      <div class="section-head"><h2 id="exp-h">Six experiments to run first</h2></div>
+      <div class="grid" id="recipes"></div>
     </div>
-    <div>
-      <div class="label">Proof closing</div>
-      <div class="legend"><span><i style="background:var(--ink)"></i>Best path U</span><span><i style="background:var(--lb)"></i>Lower bound</span></div>
-      <div class="chart" id="wrapBound"><canvas id="chartBound" role="img" aria-label="Upper and lower bound over the search"></canvas></div>
+  </section>
+
+  <section class="section" id="algorithms" aria-labelledby="alg-h">
+    <div class="wrap">
+      <div class="section-head"><h2 id="alg-h">The eight algorithms in plain words</h2></div>
+      <table class="atable">
+        <thead><tr><th>Footprint</th><th>Algorithm</th><th>What it does</th><th>Picks the lowest</th><th>Stops when</th></tr></thead>
+        <tbody id="algotable"></tbody>
+      </table>
     </div>
-    <div>
-      <div class="label">Frontier size</div>
-      <div class="chart small" id="wrapOpen"><canvas id="chartOpen" role="img" aria-label="Forward and backward frontier size over the search"></canvas></div>
+  </section>
+
+  <section class="section" id="race" aria-labelledby="race-h">
+    <div class="wrap">
+      <div class="section-head--split" style="margin-bottom:var(--head-gap)">
+        <div><h2 id="race-h">All eight algorithms on your map</h2><p class="t-lead">One clock, one map, the one you left in the playground. Fewest expanded cells finishes first.</p></div>
+        <button class="btn btn--secondary" id="raceBtn" type="button">Watch the race</button>
+      </div>
+      <div class="race" id="raceGrid"></div>
     </div>
-    <div>
-      <div class="label">All algorithms on this map, nodes expanded</div>
-      <div class="cmp" id="cmp"></div>
+  </section>
+
+  <section class="section" id="questions" aria-labelledby="faq-h">
+    <div class="wrap grid grid--top">
+      <div class="span-5"><h2 id="faq-h">Questions about the search</h2></div>
+      <div class="span-6 start-7 faq">
+        <div class="faq__item"><h3>Why not stop when the two sides meet?</h3><p>The first meeting gives a route, often not the shortest. Stopping there would give wrong answers on maps with walls or mud.</p></div>
+        <div class="faq__item"><h3>What is a frontier?</h3><p>The cells a search has reached but not yet finished. They are the bright edge on the map.</p></div>
+        <div class="faq__item"><h3>What is the estimate?</h3><p>A quick guess of the distance left, such as Manhattan distance. A safe estimate never guesses too high.</p></div>
+        <div class="faq__item"><h3>What is the lower bound?</h3><p>A number the search has proved no route can beat. The search ends when the best route reaches it.</p></div>
+        <div class="faq__item"><h3>Does it need an install or an account?</h3><p>No. Everything runs in this page, and your maps stay in your browser.</p></div>
+      </div>
     </div>
   </section>
 </main>
 
-<div class="guide">
-  <section>
-    <h2>How to read it</h2>
-    <p>Orange grows from the start and blue grows from the goal. Solid cells are the frontier, faded cells are finished. A dashed line appears when the frontiers first connect. It marks the best path found so far, which the search hasn't yet proved to be the shortest.</p>
-    <p>The search is finished when the best path U meets the lower bound in the <em>Proof closing</em> chart. Until then, a cheaper path could still exist.</p>
-    <p class="keys"><kbd>Space</kbd> play or pause, <kbd>→</kbd> step, <kbd>←</kbd> step back, <kbd>R</kbd> reset. Draw on the grid to add walls, or drag the start and goal.</p>
-  </section>
-  <section>
-    <h2>Try these</h2>
-    <div class="recipes" id="recipes"></div>
-  </section>
-  <section>
-    <h2>The algorithms</h2>
-    <div class="tablewrap"><table>
-      <thead><tr><th>Algorithm</th><th>Picks lowest</th><th>Stops when</th><th>Good to know</th><th>Source</th></tr></thead>
-      <tbody id="algotable"></tbody>
-    </table></div>
-    <p class="keys" style="margin-top:9px">g is the cost so far, h the estimate of what remains, f = g + h, and ε = 1 is the cheapest edge on the grid. F and B mean forward and backward.</p>
-  </section>
-</div>
+<footer class="footer closing footer--dark ground-inverse" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--type">
+      <div class="section-head"><h2 id="close-h">Two searches, ready on your map</h2><p>Free, and it runs in your browser.</p></div>
+      <a class="btn btn--primary btn--xl btn--wide" href="#playground" data-start>Start the search<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4"><a class="nav__logo" href="#top">BiSearch Playground</a></div>
+        <div class="span-2 footer__col"><h3>Learn</h3><ul><li><a href="#how">Basics</a></li><li><a href="#questions">Questions</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Play</h3><ul><li><a href="#playground">Playground</a></li><li><a href="#experiments">Experiments</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Compare</h3><ul><li><a href="#algorithms">Algorithms</a></li><li><a href="#race">Race</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Project</h3><ul><li><a href="https://github.com/NowfaL1N/bidirectional-search-playground">GitHub</a></li></ul></div>
+      </div>
+      <div class="footer__legal"><span>&copy; 2026 BiSearch Playground</span></div>
+    </div>
+  </div>
+</footer>
 
-<script>
-/* Bidirectional heuristic search engine.
-   No DOM access, so the same file runs in the page and in the Node test harness. */
-(function (root) {
-  'use strict';
-
-  const FREE = 0, WALL = 1, MUD = 2;
-  const MUD_COST = 5;
-  const TOL = 1e-9;
-  const EPS = 1; // cheapest possible edge on these grids
-  const NONE = 0, OPEN = 1, CLOSED = 2, PRUNED = 3;
-
-  /* ---------- random numbers and maps ---------- */
-
-  function rng(seed) {
-    let a = seed >>> 0;
-    return function () {
-      a = (a + 0x6d2b79f5) >>> 0;
-      let t = a;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  function carveMaze(cells, w, h, rand) {
-    cells.fill(WALL);
-    const stack = [[1, 1]];
-    cells[w + 1] = FREE;
-    const dirs = [[2, 0], [-2, 0], [0, 2], [0, -2]];
-    while (stack.length) {
-      const [x, y] = stack[stack.length - 1];
-      const options = dirs.filter(([dx, dy]) => {
-        const nx = x + dx, ny = y + dy;
-        return nx > 0 && ny > 0 && nx < w - 1 && ny < h - 1 && cells[ny * w + nx] === WALL;
-      });
-      if (!options.length) { stack.pop(); continue; }
-      const [dx, dy] = options[Math.floor(rand() * options.length)];
-      cells[(y + dy / 2) * w + x + dx / 2] = FREE;
-      cells[(y + dy) * w + x + dx] = FREE;
-      stack.push([x + dx, y + dy]);
-    }
-    // Remove some dead ends so the maze has more than one route.
-    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
-      if ((x % 2) !== (y % 2) && cells[y * w + x] === WALL && rand() < 0.1) cells[y * w + x] = FREE;
-    }
-  }
-
-  function buildRooms(cells, w, h, rand) {
-    const rw = 10, rh = 8;
-    for (let x = rw; x < w - 3; x += rw) for (let y = 0; y < h; y++) cells[y * w + x] = WALL;
-    for (let y = rh; y < h - 3; y += rh) for (let x = 0; x < w; x++) cells[y * w + x] = WALL;
-    for (let x = rw; x < w - 3; x += rw) for (let y0 = 0; y0 < h; y0 += rh) {
-      const y = y0 + 1 + Math.floor(rand() * Math.min(rh - 1, h - y0 - 1));
-      if (y < h) cells[y * w + x] = FREE;
-    }
-    for (let y = rh; y < h - 3; y += rh) for (let x0 = 0; x0 < w; x0 += rw) {
-      const x = x0 + 1 + Math.floor(rand() * Math.min(rw - 1, w - x0 - 1));
-      if (x < w) cells[y * w + x] = FREE;
-    }
-  }
-
-  function buildTraps(cells, w, h, sx, gx, mid) {
-    const r = Math.max(3, Math.floor(h * 0.3));
-    const arm = Math.max(3, Math.floor(w * 0.12));
-    const put = (x, y) => { if (x >= 0 && y >= 0 && x < w && y < h) cells[y * w + x] = WALL; };
-    for (let y = mid - r; y <= mid + r; y++) { put(sx + 3, y); put(gx - 3, y); }
-    for (let i = 0; i <= arm; i++) {
-      put(sx + 3 - i, mid - r); put(sx + 3 - i, mid + r);
-      put(gx - 3 + i, mid - r); put(gx - 3 + i, mid + r);
-    }
-  }
-
-  function reachable(cells, w, h, a, b, passNoise) {
-    const prev = new Int32Array(w * h).fill(-1);
-    const queue = [a];
-    prev[a] = a;
-    for (let q = 0; q < queue.length; q++) {
-      const i = queue[q];
-      if (i === b) return prev;
-      const x = i % w, y = (i - x) / w;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const nx = x + dx, ny = y + dy;
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-        const j = ny * w + nx;
-        if (prev[j] >= 0) continue;
-        if (cells[j] === WALL && !(passNoise && passNoise[j])) continue;
-        prev[j] = i;
-        queue.push(j);
-      }
-    }
-    return null;
-  }
-
-  function makeMap(preset, w, h, seed, noisePct, mudPct) {
-    w |= 1; h |= 1; // odd sizes keep maze corridors aligned
-    const rand = rng(seed);
-    const cells = new Uint8Array(w * h);
-    let mid = (h - 1) >> 1;
-    if (mid % 2 === 0) mid -= 1;
-    let sx = 1, gx = w - 2;
-    if (preset === 'maze') carveMaze(cells, w, h, rand);
-    else if (preset === 'rooms') buildRooms(cells, w, h, rand);
-    else if (preset === 'traps') {
-      sx = Math.round(w * 0.24); gx = w - 1 - sx;
-      buildTraps(cells, w, h, sx, gx, mid);
-    }
-    const start = mid * w + sx, goal = mid * w + gx;
-    cells[start] = FREE; cells[goal] = FREE;
-
-    const noise = new Uint8Array(w * h);
-    for (let i = 0; i < w * h; i++) {
-      if (cells[i] === FREE && i !== start && i !== goal && rand() < noisePct / 100) { cells[i] = WALL; noise[i] = 1; }
-    }
-    // Reopen just enough random walls to keep the two ends connected.
-    if (!reachable(cells, w, h, start, goal, null)) {
-      const prev = reachable(cells, w, h, start, goal, noise);
-      if (prev) for (let i = goal; i !== start; i = prev[i]) if (noise[i]) cells[i] = FREE;
-    }
-    if (mudPct > 0) {
-      const p = [rand() * 6, rand() * 6, rand() * 6, rand() * 6];
-      const field = [];
-      const value = new Float64Array(w * h);
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        const v = Math.sin(x * 0.19 + p[0]) + Math.sin(y * 0.23 + p[1]) +
-          Math.sin((x + y) * 0.11 + p[2]) + Math.sin((x - y) * 0.31 + p[3]);
-        value[y * w + x] = v;
-        if (cells[y * w + x] === FREE) field.push(v);
-      }
-      field.sort((a, b) => b - a);
-      const cut = field[Math.min(field.length - 1, Math.floor(field.length * mudPct / 100))];
-      for (let i = 0; i < w * h; i++) if (cells[i] === FREE && value[i] > cut && i !== start && i !== goal) cells[i] = MUD;
-    }
-    return { w, h, cells, start, goal };
-  }
-
-  /* ---------- graph, heuristics ---------- */
-
-  function buildGraph(map, diag) {
-    const { w, h, cells } = map;
-    const adj = new Array(w * h);
-    const terrain = (i) => (cells[i] === MUD ? MUD_COST : 1);
-    const open = (x, y) => x >= 0 && y >= 0 && x < w && y < h && cells[y * w + x] !== WALL;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const i = y * w + x, list = [];
-      adj[i] = list;
-      if (cells[i] === WALL) continue;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        if (!open(x + dx, y + dy)) continue;
-        const j = (y + dy) * w + x + dx;
-        list.push(j, (terrain(i) + terrain(j)) / 2);
-      }
-      if (!diag) continue;
-      for (const [dx, dy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
-        if (!open(x + dx, y + dy) || !open(x + dx, y) || !open(x, y + dy)) continue;
-        const j = (y + dy) * w + x + dx;
-        list.push(j, Math.SQRT2 * (terrain(i) + terrain(j)) / 2);
-      }
-    }
-    return adj;
-  }
-
-  // Binary-heap Dijkstra from one source; used for landmarks and ground truth.
-  function dijkstra(adj, src) {
-    const dist = new Float64Array(adj.length).fill(Infinity);
-    dist[src] = 0;
-    const hk = [0], hv = [src];
-    const push = (k, v) => {
-      let i = hk.length; hk.push(k); hv.push(v);
-      while (i > 0) {
-        const p = (i - 1) >> 1;
-        if (hk[p] <= k) break;
-        hk[i] = hk[p]; hv[i] = hv[p]; i = p;
-      }
-      hk[i] = k; hv[i] = v;
-    };
-    const pop = () => {
-      const k = hk[0], v = hv[0], lk = hk.pop(), lv = hv.pop();
-      const n = hk.length;
-      if (n) {
-        let i = 0;
-        for (;;) {
-          let c = 2 * i + 1;
-          if (c >= n) break;
-          if (c + 1 < n && hk[c + 1] < hk[c]) c++;
-          if (hk[c] >= lk) break;
-          hk[i] = hk[c]; hv[i] = hv[c]; i = c;
-        }
-        hk[i] = lk; hv[i] = lv;
-      }
-      return [k, v];
-    };
-    while (hk.length) {
-      const [d, u] = pop();
-      if (d > dist[u]) continue;
-      const list = adj[u];
-      for (let e = 0; e < list.length; e += 2) {
-        const nd = d + list[e + 1];
-        if (nd < dist[list[e]]) { dist[list[e]] = nd; push(nd, list[e]); }
-      }
-    }
-    return dist;
-  }
-
-  function pickLandmarks(adj, cells, start, count) {
-    const out = [];
-    const best = new Float64Array(adj.length).fill(Infinity);
-    let source = start;
-    for (let k = 0; k <= count; k++) {
-      const d = dijkstra(adj, source);
-      if (k > 0) out.push(d);
-      let far = -1, farV = -1;
-      for (let i = 0; i < adj.length; i++) {
-        if (cells[i] === WALL || d[i] === Infinity) continue;
-        best[i] = k === 0 ? d[i] : Math.min(best[i], d[i]);
-        if (best[i] > farV) { farV = best[i]; far = i; }
-      }
-      if (far < 0) break;
-      source = far;
-    }
-    return out;
-  }
-
-  const FEATURE_NAMES = ['manhattan', 'euclid', 'chebyshev', 'octile', 'landmark'];
-
-  function makeProblem(map, options) {
-    const adj = buildGraph(map, options.diag);
-    const w = map.w;
-    const features = options.features.slice();
-    const weight = options.weight;
-    let landmarks = null;
-    const lm = () => landmarks || (landmarks = pickLandmarks(adj, map.cells, map.start, 4));
-
-    function feature(name, a, b) {
-      if (name === 'landmark') {
-        let best = 0;
-        for (const d of lm()) {
-          if (d[a] === Infinity || d[b] === Infinity) continue;
-          const v = Math.abs(d[a] - d[b]);
-          if (v > best) best = v;
-        }
-        return best;
-      }
-      const ax = a % w, ay = (a - ax) / w, bx = b % w, by = (b - bx) / w;
-      const dx = Math.abs(ax - bx), dy = Math.abs(ay - by);
-      switch (name) {
-        case 'manhattan': return dx + dy;
-        case 'euclid': return Math.sqrt(dx * dx + dy * dy);
-        case 'chebyshev': return Math.max(dx, dy);
-        case 'octile': return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
-        default: return 0;
-      }
-    }
-    function h(a, b) {
-      let best = 0;
-      for (let i = 0; i < features.length; i++) {
-        const v = feature(features[i], a, b);
-        if (v > best) best = v;
-      }
-      return best * weight;
-    }
-    return { map, adj, n: adj.length, start: map.start, goal: map.goal, diag: !!options.diag, features, weight, h, feature };
-  }
-
-  function exactCost(problem) {
-    return dijkstra(problem.adj, problem.start)[problem.goal];
-  }
-
-  /* ---------- algorithm definitions ---------- */
-
-  const ALGOS = {
-    astar: { name: 'A*', bi: false, side: 'forward', tie: 'high', key: (s, side, n, g, h, f) => f,
-      lb: (F) => F.fmin },
-    bidijkstra: { name: 'Bi-Dijkstra', bi: true, side: 'key', tie: 'low', noH: true, key: (s, side, n, g) => g,
-      lb: (F, B) => F.gmin + B.gmin + EPS },
-    bhpa: { name: 'BHPA', bi: true, side: 'smaller', tie: 'high', key: (s, side, n, g, h, f) => f,
-      lb: (F, B) => Math.max(F.fmin, B.fmin) },
-    bs: { name: 'BS*', bi: true, side: 'smaller', tie: 'high', prune: true, key: (s, side, n, g, h, f) => f,
-      lb: (F, B) => Math.max(F.fmin, B.fmin) },
-    mm: { name: 'MM', bi: true, side: 'key', tie: 'low', key: (s, side, n, g, h, f) => Math.max(f, 2 * g),
-      lb: (F, B) => Math.max(Math.min(F.kmin, B.kmin), F.fmin, B.fmin, F.gmin + B.gmin + EPS) },
-    nbs: { name: 'NBS', bi: true, pair: true, side: 'pair', tie: 'low', key: (s, side, n, g, h, f) => f, lb: () => 0 },
-    balanced: { name: 'Balanced Bi-A*', bi: true, balanced: true, side: 'smaller', tie: 'high',
-      key: (s, side, n, g) => {
-        const p = (s.h_(0, n) - s.h_(1, n)) / 2;
-        return side === 0 ? g + p : g - p;
-      },
-      lb: (F, B) => F.kmin + B.kmin },
-    f2f: { name: 'Front-to-Front', bi: true, f2f: true, side: 'smaller', tie: 'high', key: (s, side, n, g, h, f) => f,
-      lb: (F, B) => Math.max(F.fmin, B.fmin) },
-  };
-  const ALGO_ORDER = ['mm', 'nbs', 'bs', 'bhpa', 'balanced', 'f2f', 'bidijkstra', 'astar'];
-
-  /* ---------- the search itself ---------- */
-
-  class Search {
-    constructor(problem, algo, sideRule) {
-      const n = problem.n;
-      this.p = problem;
-      this.algo = algo;
-      this.a = ALGOS[algo];
-      this.sideRule = sideRule || 'auto';
-      const f64 = (v) => new Float64Array(n).fill(v);
-      const i32 = () => new Int32Array(n).fill(-1);
-      this.g = [f64(Infinity), f64(Infinity)];
-      this.hc = [f64(-1), f64(-1)];
-      this.st = [new Uint8Array(n), new Uint8Array(n)];
-      this.par = [i32(), i32()];
-      this.ord = [i32(), i32()];
-      this.pos = [i32(), i32()];
-      this.open = [[], []];
-      this.U = Infinity;
-      this.meet = -1;
-      this.expanded = [0, 0];
-      this.nipped = 0;
-      this.lb = 0;
-      this.clb = 0;
-      this.pending = -1;
-      this.done = false;
-      this.status = 'running';
-      this.lastSide = -1;
-      this.lastNode = -1;
-      this.hExp = []; this.hLb = []; this.hU = []; this.hOF = []; this.hOB = [];
-
-      this.g[0][problem.start] = 0;
-      this.g[1][problem.goal] = 0;
-      this.pushOpen(0, problem.start);
-      if (this.a.bi) this.pushOpen(1, problem.goal);
-      this.record();
-    }
-
-    get stepCount() { return this.hExp.length - 1; }
-    get totalExpanded() { return this.expanded[0] + this.expanded[1]; }
-
-    pushOpen(side, n) {
-      this.st[side][n] = OPEN;
-      this.pos[side][n] = this.open[side].length;
-      this.open[side].push(n);
-    }
-
-    dropOpen(side, n, state) {
-      const list = this.open[side], i = this.pos[side][n], last = list.pop();
-      if (last !== n) { list[i] = last; this.pos[side][last] = i; }
-      this.pos[side][n] = -1;
-      this.st[side][n] = state;
-    }
-
-    record() {
-      this.hExp.push(this.totalExpanded);
-      this.hLb.push(this.lb);
-      this.hU.push(this.U);
-      this.hOF.push(this.open[0].length);
-      this.hOB.push(this.open[1].length);
-    }
-
-    h_(side, n) {
-      let v = this.hc[side][n];
-      if (v < 0) {
-        if (this.a.noH) v = 0;
-        else if (this.a.f2f) v = this.frontH(side, n);
-        else v = this.p.h(n, side === 0 ? this.p.goal : this.p.start);
-        this.hc[side][n] = v;
-      }
-      return v;
-    }
-
-    frontH(side, n) {
-      const o = 1 - side, list = this.open[o], go = this.g[o];
-      let best = Infinity;
-      for (let i = 0; i < list.length; i++) {
-        const m = list[i], v = go[m] + this.p.h(n, m);
-        if (v < best) best = v;
-      }
-      return best;
-    }
-
-    scan(side) {
-      const a = this.a, list = this.open[side], gs = this.g[side];
-      let fmin = Infinity, gmin = Infinity, kmin = Infinity, node = -1, nodeG = 0;
-      for (let i = 0; i < list.length; i++) {
-        const n = list[i], g = gs[n], h = this.h_(side, n), f = g + h;
-        if (f < fmin) fmin = f;
-        if (g < gmin) gmin = g;
-        const k = a.key(this, side, n, g, h, f);
-        const tied = Math.abs(k - kmin) <= TOL;
-        if ((!tied && k < kmin) || (tied && (a.tie === 'high' ? g > nodeG : g < nodeG))) {
-          kmin = k; node = n; nodeG = g;
-        }
-      }
-      return { fmin, gmin, kmin, node };
-    }
-
-    // Front-to-front estimates go stale. A stale value is still a valid lower
-    // bound, so only the node about to be chosen is refreshed.
-    refreshFront(side, info) {
-      for (;;) {
-        const n = info.node;
-        if (n < 0) return info;
-        const old = this.hc[side][n], fresh = this.frontH(side, n);
-        this.hc[side][n] = fresh;
-        if (fresh <= old + TOL) return this.scan(side);
-        info = this.scan(side);
-      }
-    }
-
-    chooseSide(F, B) {
-      if (!this.a.bi) return 0;
-      const rule = this.sideRule === 'auto' ? this.a.side : this.sideRule;
-      if (rule === 'smaller') return this.open[0].length <= this.open[1].length ? 0 : 1;
-      if (rule === 'alternate') return this.totalExpanded % 2;
-      return F.kmin <= B.kmin ? 0 : 1;
-    }
-
-    pickPair() {
-      const ready = [{}, {}];
-      const st = this;
-      function sweep(side) {
-        const list = st.open[side], gs = st.g[side];
-        let gBest = Infinity, node = -1, wait = Infinity;
-        for (let i = 0; i < list.length; i++) {
-          const n = list[i], f = gs[n] + st.h_(side, n);
-          if (f <= st.clb + TOL) { if (gs[n] < gBest) { gBest = gs[n]; node = n; } }
-          else if (f < wait) wait = f;
-        }
-        ready[side] = { gBest, node, wait };
-      }
-      for (;;) {
-        sweep(0); sweep(1);
-        const both = ready[0].node >= 0 && ready[1].node >= 0;
-        const sum = both ? ready[0].gBest + ready[1].gBest + EPS : Infinity;
-        if (both && sum <= this.clb + TOL) return [ready[0].node, ready[1].node];
-        const next = Math.min(ready[0].wait, ready[1].wait, sum);
-        if (next === Infinity) return null;
-        this.clb = Math.max(this.clb, next);
-      }
-    }
-
-    trim() {
-      for (let side = 0; side < 2; side++) {
-        const list = this.open[side];
-        for (let i = list.length - 1; i >= 0; i--) {
-          const n = list[i];
-          if (this.g[side][n] + this.h_(side, n) >= this.U - TOL) this.dropOpen(side, n, PRUNED);
-        }
-      }
-    }
-
-    expand(side, n) {
-      const a = this.a, gs = this.g[side], go = this.g[1 - side], st = this.st[side];
-      this.dropOpen(side, n, CLOSED);
-      this.ord[side][n] = this.totalExpanded;
-      this.expanded[side]++;
-      this.lastSide = side;
-      this.lastNode = n;
-      const list = this.p.adj[n];
-      for (let e = 0; e < list.length; e += 2) {
-        const v = list[e], ng = gs[n] + list[e + 1];
-        if (ng >= gs[v] - TOL) continue;
-        gs[v] = ng;
-        this.par[side][v] = n;
-        if (go[v] < Infinity && ng + go[v] < this.U - TOL) {
-          this.U = ng + go[v];
-          this.meet = v;
-          if (a.prune) this.trim();
-        }
-        if (a.prune && ng + this.h_(side, v) >= this.U - TOL) {
-          if (st[v] === OPEN) this.dropOpen(side, v, PRUNED); else st[v] = PRUNED;
-          continue;
-        }
-        if (st[v] !== OPEN) this.pushOpen(side, v);
-      }
-    }
-
-    finish() {
-      this.done = true;
-      this.status = this.U < Infinity ? 'found' : 'nopath';
-      this.record();
-      return false;
-    }
-
-    step() {
-      if (this.done) return false;
-      const a = this.a;
-
-      if (this.pending >= 0) {
-        const v = this.pending;
-        this.pending = -1;
-        if (this.st[1][v] === OPEN && this.U > this.clb + TOL) {
-          this.expand(1, v);
-          this.record();
-          return true;
-        }
-      }
-
-      for (;;) {
-        if (!this.open[0].length || (a.bi && !this.open[1].length)) return this.finish();
-
-        if (a.pair) {
-          const pair = this.pickPair();
-          this.lb = Math.max(this.lb, this.clb);
-          if (!pair || this.U <= this.clb + TOL) return this.finish();
-          this.expand(0, pair[0]);
-          this.pending = pair[1];
-          this.record();
-          return true;
-        }
-
-        const F = this.scan(0), B = a.bi ? this.scan(1) : null;
-        const side = this.chooseSide(F, B);
-        let chosen = side === 0 ? F : B;
-        if (a.f2f) chosen = this.refreshFront(side, chosen);
-        const bound = a.f2f
-          ? a.lb(side === 0 ? chosen : F, side === 1 ? chosen : B)
-          : a.lb(F, B);
-        this.lb = Math.max(this.lb, bound);
-        if (this.U <= this.lb + TOL) return this.finish();
-
-        const n = chosen.node;
-        if (a.prune && this.st[1 - side][n] === CLOSED) {
-          // Nipping: the other direction has already settled this node.
-          this.dropOpen(side, n, CLOSED);
-          this.nipped++;
-          continue;
-        }
-        this.expand(side, n);
-        this.record();
-        return true;
-      }
-    }
-
-    run() { while (this.step()); return this; }
-
-    path() {
-      if (this.meet < 0) return [];
-      const out = [];
-      for (let v = this.meet; v !== -1; v = this.par[0][v]) out.push(v);
-      out.reverse();
-      for (let v = this.par[1][this.meet]; v !== -1; v = this.par[1][v]) out.push(v);
-      return out;
-    }
-
-    pathCost() {
-      const path = this.path(), adj = this.p.adj;
-      let cost = 0;
-      for (let i = 1; i < path.length; i++) {
-        const list = adj[path[i - 1]];
-        let found = Infinity;
-        for (let e = 0; e < list.length; e += 2) if (list[e] === path[i]) found = list[e + 1];
-        cost += found;
-      }
-      return cost;
-    }
-  }
-
-  const api = { FREE, WALL, MUD, MUD_COST, NONE, OPEN, CLOSED, PRUNED, EPS, ALGOS, ALGO_ORDER, FEATURE_NAMES,
-    makeMap, makeProblem, exactCost, Search };
-  if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  else root.BiHS = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this);
-</script>
+<script src="engine.js"></script>
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);
 const { Search, makeMap, makeProblem, exactCost, ALGOS, ALGO_ORDER, WALL, MUD, OPEN, CLOSED, PRUNED } = BiHS;
+const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const phone = matchMedia('(max-width: 639px)').matches, baseCols = phone ? 31 : 51;
 
 const INFO = {
-  mm: { pri: 'max(f, 2g)', stop: 'U ≤ max(C, fminF, fminB, gminF + gminB + ε)', note: 'Never expands a node past the halfway cost, so the frontiers are guaranteed to meet in the middle.', src: 'Holte et al., 2016' },
-  nbs: { pri: 'pair: max(fF, fB, gF + gB + ε)', stop: 'U ≤ lower bound of the best pair', note: 'Expands a pair of nodes each round. Within twice the minimum possible expansions, given the same information.', src: 'Chen et al., 2017' },
-  bs: { pri: 'f = g + h', stop: 'U ≤ max(fminF, fminB)', note: 'BHPA plus pruning: skips nodes the other side settled and drops nodes that cannot beat U.', src: 'Kwa, 1989' },
-  bhpa: { pri: 'f = g + h', stop: 'U ≤ max(fminF, fminB)', note: 'The original front-to-end method. Two independent A* searches, with no pruning.', src: 'Pohl, 1971' },
-  balanced: { pri: 'g ± (hF − hB) / 2', stop: 'U ≤ kminF + kminB', note: 'Averages the two heuristics so both sides see the same reduced edge costs, then stops like Dijkstra.', src: 'Ikeda et al., 1994' },
-  f2f: { pri: 'g + min over other frontier (h(n,m) + g(m))', stop: 'U ≤ max(fminF, fminB)', note: 'Aims at the other frontier, not its far endpoint. Often needs few expansions, but each one costs more to compute.', src: 'de Champeaux, 1983' },
-  bidijkstra: { pri: 'g', stop: 'U ≤ gminF + gminB + ε', note: 'Ignores the heuristic. Shows how much the heuristic is buying.', src: 'Nicholson, 1966' },
-  astar: { pri: 'f = g + h', stop: 'U ≤ fmin', note: 'One direction only. The number each bidirectional method has to beat.', src: 'Hart et al., 1968' },
+  mm: { pri: 'max(f, 2g)', stop: 'U ≤ max(C, fminF, fminB, gminF + gminB + ε)', short: 'Meets in the middle', plain: 'Neither side goes past half the route cost, so the two always meet in the middle.', src: 'Holte et al., 2016' },
+  nbs: { pri: 'pair: max(fF, fB, gF + gB + ε)', stop: 'U ≤ lower bound of the best pair', short: 'Expands pairs of cells', plain: 'Expands one cell from each side per round, within twice the minimum work.', src: 'Chen et al., 2017' },
+  bs: { pri: 'f = g + h', stop: 'U ≤ max(fminF, fminB)', short: 'Two A* with pruning', plain: 'Two A* searches that skip cells the other side has settled.', src: 'Kwa, 1989' },
+  bhpa: { pri: 'f = g + h', stop: 'U ≤ max(fminF, fminB)', short: 'The original two-way A*', plain: 'The first two-way method: two separate A* searches with no pruning.', src: 'Pohl, 1971' },
+  balanced: { pri: 'g ± (hF − hB) / 2', stop: 'U ≤ kminF + kminB', short: 'Both sides agree on costs', plain: 'Averages both estimates so the sides agree on costs, then stops like Dijkstra.', src: 'Ikeda et al., 1994' },
+  f2f: { pri: 'g + min over other frontier (h(n,m) + g(m))', stop: 'U ≤ max(fminF, fminB)', short: 'Aims at the other frontier', plain: 'Aims at the other frontier itself. Few expansions, more arithmetic in each.', src: 'de Champeaux, 1983' },
+  bidijkstra: { pri: 'g', stop: 'U ≤ gminF + gminB + ε', short: 'Two-way, no estimate', plain: 'Ignores the estimate and spreads evenly. Shows what the estimate is worth.', src: 'Nicholson, 1966' },
+  astar: { pri: 'f = g + h', stop: 'U ≤ fmin', short: 'One direction only', plain: 'One direction only. The number every two-way method has to beat.', src: 'Hart et al., 1968' },
 };
-const FEATURES = [
-  ['manhattan', 'Manhattan'], ['euclid', 'Euclidean'], ['chebyshev', 'Chebyshev'], ['octile', 'Octile'], ['landmark', 'Landmarks'],
-];
-const PRESETS = [
-  ['open', 'Open', 0, 0], ['scatter', 'Scatter', 28, 0], ['swamp', 'Swamp', 0, 45],
-  ['maze', 'Maze', 0, 0], ['rooms', 'Rooms', 0, 0], ['traps', 'Traps', 0, 0],
-];
+const FEATURES = [['manhattan', 'Manhattan'], ['euclid', 'Euclidean'], ['chebyshev', 'Chebyshev'], ['octile', 'Octile'], ['landmark', 'Landmarks']];
+const PRESETS = [['open', 'Open', 0, 0], ['scatter', 'Scatter', 28, 0], ['swamp', 'Swamp', 0, 45], ['maze', 'Maze', 0, 0], ['rooms', 'Rooms', 0, 0], ['traps', 'Traps', 0, 0]];
 const RECIPES = [
-  { t: 'A trap around both ends', d: 'A* floods the pocket around the start. Front-to-Front gets out in far fewer expansions.', c: { preset: 'traps', algo: 'f2f' } },
-  { t: 'Meet exactly in the middle', d: 'MM cannot expand past half the path cost. Watch the Territory view split the map.', c: { preset: 'scatter', algo: 'mm', view: 'territory' } },
-  { t: 'When A* wins anyway', d: 'With a useful heuristic in Rooms, one direction often beats most two-way methods. Check the bars.', c: { preset: 'rooms', algo: 'bhpa' } },
-  { t: 'Buy speed with a worse path', d: 'Weight 1.6 inflates the estimate. The search ends early and the path can cost more.', c: { preset: 'scatter', algo: 'bhpa', weight: 1.6 } },
-  { t: 'An estimate that overestimates', d: 'Manhattan counts a diagonal as 2 when it costs 1.41, so the optimality guarantee is gone.', c: { preset: 'scatter', algo: 'bhpa', diag: true, features: ['manhattan'] } },
-  { t: 'Landmarks know about walls', d: 'Geometry cannot see maze walls. Landmark distances are measured through them.', c: { preset: 'maze', algo: 'bs', features: ['landmark'] } },
+  { t: 'Escapes a trap around both ends', d: 'A* floods the pocket around the start. Front-to-Front gets out in far fewer expansions.', c: { preset: 'traps', algo: 'f2f' } },
+  { t: 'Splits the map down the middle', d: 'MM cannot expand past half the route cost. The Territory view shows the split.', c: { preset: 'scatter', algo: 'mm', view: 'territory' } },
+  { t: 'Shows one direction winning', d: 'With a useful estimate in Rooms, A* often beats most two-way methods. Check Compare.', c: { preset: 'rooms', algo: 'bhpa' } },
+  { t: 'Trades route quality for speed', d: 'Weight 1.6 inflates the estimate. The search ends early and the route can cost more.', c: { preset: 'scatter', algo: 'bhpa', weight: 1.6 } },
+  { t: 'Breaks the shortest-route guarantee', d: 'Manhattan counts a diagonal as 2 when it costs 1.41, so the proof no longer holds.', c: { preset: 'scatter', algo: 'bhpa', diag: true, features: ['manhattan'] } },
+  { t: 'Sees through maze walls', d: 'Geometry cannot see walls. Landmark distances are measured through the maze itself.', c: { preset: 'maze', algo: 'bs', features: ['landmark'] } },
 ];
 
 const S = {
-  preset: 'traps', cols: 51, noise: 0, mud: 0, seed: 7, map: null, P: null,
+  preset: 'traps', cols: baseCols, noise: 0, mud: 0, seed: 7, map: null, P: null,
   algo: 'mm', features: ['manhattan'], weight: 1, diag: false, side: 'auto',
   view: 'frontier', tool: 'wall', playing: false, search: null, total: 1, finalS: null, truth: 0, field: null,
-  cs: 8, acc: 0, last: 0, dirty: true, needRebuild: false, cmpTimer: 0,
+  cs: 8, acc: 0, last: 0, dirty: true, needRebuild: false, cmpTimer: 0, met: -1, finT: 0, runs: {}, tour: -1,
 };
 let C = {};
 const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 function readTheme() {
   const css = getComputedStyle(document.documentElement);
-  for (const k of ['cell', 'gridline', 'wall', 'mud', 'f', 'b', 'both', 'path', 'casing', 'lb', 'ink', 'ink2', 'ink3', 'line', 'bg', 'panel']) C[k] = css.getPropertyValue('--' + k).trim();
-  S.dirty = true;
-  drawThumbs(); drawFeatureTiles(); drawLinks();
+  for (const [k, v] of [['cell', 'cell'], ['gridline', 'gridline'], ['wall', 'wall'], ['mud', 'mud'], ['f', 'f'], ['b', 'b'], ['both', 'both'], ['path', 'path'], ['casing', 'casing'], ['lb', 'lb'], ['ink', 'ink'], ['ink2', 'ink2'], ['ink3', 'ink3'], ['line', 'line'], ['bg', 'bg'], ['panel', 'panel']]) C[k] = css.getPropertyValue('--viz-' + v).trim();
 }
 const fmt = (x) => x === Infinity ? '∞' : (Math.abs(x - Math.round(x)) < 0.005 ? String(Math.round(x)) : x.toFixed(1));
-const rowsFor = (cols) => { const r = Math.round(cols * 0.6); return r % 2 ? r : r + 1; };
+const rowsFor = (cols) => { const r = Math.round(cols * (phone ? 1.3 : 0.6)); return r % 2 ? r : r + 1; };
+const presetBase = (p) => p === 'scatter' || p === 'swamp' ? 'open' : p;
 
 /* ---------- state changes ---------- */
 function regen(keep) {
-  S.map = makeMap(S.preset === 'scatter' || S.preset === 'swamp' ? 'open' : S.preset, S.cols, rowsFor(S.cols), S.seed, S.noise, S.mud);
+  S.map = makeMap(presetBase(S.preset), S.cols, rowsFor(S.cols), S.seed, S.noise, S.mud);
   resizeGrid();
   rebuild(keep);
   drawFeatureTiles();
@@ -888,6 +532,7 @@ function rebuild(keep) {
   S.field = null;
   S.finalS = new Search(S.P, S.algo, S.side).run();
   S.total = S.finalS.stepCount;
+  S.met = S.finalS.hU.findIndex((u) => u < Infinity);
   $('scrub').max = S.total;
   seek(Math.min(keep || 0, S.total));
   scheduleCompare();
@@ -895,6 +540,7 @@ function rebuild(keep) {
 function seek(k) {
   S.search = new Search(S.P, S.algo, S.side);
   while (S.search.stepCount < k && S.search.step());
+  S.finT = 0;
   S.dirty = true;
 }
 function setPlaying(on) {
@@ -902,59 +548,66 @@ function setPlaying(on) {
   S.playing = on; S.acc = 0; S.last = performance.now();
   $('playicon').setAttribute('d', on ? 'M3 2h4v12H3zM9 2h4v12H9z' : 'M4 2l10 6-10 6z');
   $('play').setAttribute('aria-label', on ? 'Pause' : 'Play');
+  $('playword').textContent = on ? 'Pause' : 'Play';
   $('pipe').classList.toggle('live', on);
 }
 function scheduleCompare() { clearTimeout(S.cmpTimer); S.cmpTimer = setTimeout(renderCompare, 120); }
 function renderCompare() {
+  S.runs = {};
   const rows = ALGO_ORDER.map((a) => {
     const s = S.algo === a && S.finalS ? S.finalS : new Search(S.P, a, S.side).run();
+    S.runs[a] = s;
     return { a, n: s.totalExpanded, U: s.U };
   }).sort((x, y) => x.n - y.n);
   const max = Math.max(1, ...rows.map((r) => r.n));
   const box = $('cmp'); box.textContent = '';
   for (const r of rows) {
     const b = document.createElement('button');
+    b.type = 'button';
     b.setAttribute('aria-pressed', r.a === S.algo);
-    b.title = `${ALGOS[r.a].name}: ${r.n} expansions, path cost ${fmt(r.U)}`;
+    b.title = `${ALGOS[r.a].name}: ${r.n} expansions, route cost ${fmt(r.U)}`;
     const name = document.createElement('span');
     name.textContent = ALGOS[r.a].name;
     if (r.U > S.truth + 1e-6 && r.U < Infinity) {
-      const off = document.createElement('span'); off.className = 'off'; off.textContent = `+${fmt(r.U - S.truth)} over shortest`; name.append(off);
+      const off = document.createElement('span'); off.className = 'off'; off.textContent = `+${fmt(r.U - S.truth)} longer`; name.append(off);
     }
-    const track = document.createElement('span'); track.className = 'track'; track.style.display = 'block';
-    const fill = document.createElement('span'); fill.className = 'fill'; fill.style.display = 'block'; fill.style.width = (r.n / max * 100) + '%'; track.append(fill);
+    const track = document.createElement('span'); track.style.display = 'block';
+    const fill = document.createElement('span'); fill.className = 'fill'; fill.style.width = (r.n / max * 100) + '%'; track.append(fill);
     const num = document.createElement('span'); num.className = 'num'; num.textContent = r.n;
     b.append(name, track, num);
-    b.onclick = () => { S.algo = r.a; $('algo').value = r.a; syncAlgo(); rebuild(0); setPlaying(true); };
+    b.onclick = () => { setAlgo(r.a); setPlaying(true); };
     box.append(b);
   }
+  showRaceResults();
 }
+function setAlgo(a) { S.algo = a; syncAlgo(); rebuild(0); }
 function syncAlgo() {
   $('fpri').textContent = INFO[S.algo].pri;
   $('fstop').textContent = INFO[S.algo].stop;
   $('side').disabled = S.algo === 'nbs' || S.algo === 'astar';
+  document.querySelectorAll('#algos button').forEach((b) => b.setAttribute('aria-checked', b.dataset.v === S.algo));
   drawLinks(); S.dirty = true;
 }
 function updateNote() {
   const el = $('hnote'); let text = '', warn = false;
   const bad = S.diag && S.features.includes('manhattan');
-  if (!S.features.length || S.weight === 0) text = 'No estimate in use, so each side spreads out evenly like Dijkstra.';
-  else if (bad) { text = 'Manhattan counts a diagonal step as 2, but it costs 1.41. The path may not be the shortest.'; warn = true; }
-  else if (S.weight > 1) { text = `Estimates are multiplied by ${S.weight.toFixed(2)}. The search is faster, but the path may not be the shortest.`; warn = true; }
-  else if (S.features.length > 1) text = 'h is the largest of the selected features, which stays a safe lower estimate.';
-  else text = 'The search uses this estimate from both ends: distance to the goal going forward, and to the start going backward.';
+  if (!S.features.length || S.weight === 0) text = 'No estimate in use, so each side spreads evenly like Dijkstra.';
+  else if (bad) { text = 'Manhattan counts a diagonal as 2, but it costs 1.41. The route may not be the shortest.'; warn = true; }
+  else if (S.weight > 1) { text = `Estimates are multiplied by ${S.weight.toFixed(2)}. Faster, but the route may not be the shortest.`; warn = true; }
+  else if (S.features.length > 1) text = 'The largest selected value is used, which is still a safe estimate.';
+  else text = 'Both sides use this estimate: distance to the goal going forward, to the start going backward.';
   el.textContent = text; el.classList.toggle('warn', warn);
 }
 function applyConfig(c) {
+  endTour();
   const p = PRESETS.find((x) => x[0] === (c.preset || S.preset));
-  S.preset = p[0]; S.noise = p[2]; S.mud = p[3]; S.cols = 51; S.seed = 7;
+  S.preset = p[0]; S.noise = p[2]; S.mud = p[3]; S.cols = baseCols; S.seed = 7;
   S.algo = c.algo || S.algo; S.weight = c.weight == null ? 1 : c.weight; S.diag = !!c.diag; S.side = 'auto';
   S.features = c.features || (S.diag ? ['octile'] : ['manhattan']); S.view = c.view || 'frontier';
   syncControls(); regen(0); setPlaying(true);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function syncControls() {
-  $('algo').value = S.algo; $('moves').value = S.diag ? '8' : '4'; $('side').value = S.side;
+  $('moves').value = S.diag ? '8' : '4'; $('side').value = S.side;
   $('cols').value = S.cols; $('noise').value = S.noise; $('mud').value = S.mud; $('weight').value = S.weight;
   $('colsv').textContent = `${S.cols} × ${rowsFor(S.cols)}`; $('noisev').textContent = S.noise + '%'; $('mudv').textContent = S.mud + '%'; $('weightv').textContent = S.weight.toFixed(2);
   document.querySelectorAll('#views button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.v === S.view));
@@ -974,7 +627,7 @@ const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[
 function drawThumbs() {
   document.querySelectorAll('#presets .tile').forEach((b) => {
     const p = PRESETS.find((x) => x[0] === b.dataset.v);
-    const m = makeMap(p[0] === 'scatter' || p[0] === 'swamp' ? 'open' : p[0], 31, 19, 7, p[2], p[3]);
+    const m = makeMap(presetBase(p[0]), 31, 19, 7, p[2], p[3]);
     const cell = hex(C.cell), wall = hex(C.wall), mud = hex(C.mud);
     paint(b.querySelector('canvas'), m.w, m.h, (i) => m.cells[i] === WALL ? wall : m.cells[i] === MUD ? mud : cell);
   });
@@ -986,8 +639,7 @@ function drawFeatureTiles() {
     const name = b.dataset.v, vals = new Float64Array(m.w * m.h); let max = 1e-9;
     for (let i = 0; i < vals.length; i++) if (m.cells[i] !== WALL) { const v = S.P.feature(name, i, m.goal); vals[i] = v; if (v > max) max = v; }
     paint(b.querySelector('canvas'), m.w, m.h, (i) => m.cells[i] === WALL ? wall : mix(ink, cell, Math.min(1, 0.12 + vals[i] / max * 0.88)));
-    const bad = b.querySelector('.bad');
-    bad.hidden = !(S.diag && name === 'manhattan');
+    b.querySelector('.bad').hidden = !(S.diag && name === 'manhattan');
   });
 }
 function drawNeurons() {
@@ -1000,11 +652,11 @@ function drawNeurons() {
 }
 function drawLinks() {
   const svg = $('links'), pipe = $('pipe');
-  if (!S.search || !C.f) return;
+  if (!S.search || !C.f || !pipe.offsetWidth) return;
   const R = pipe.getBoundingClientRect(), NS = 'http://www.w3.org/2000/svg';
   svg.textContent = '';
-  const targets = [[$('cF'), C.f, 0]];
-  if (ALGOS[S.algo].bi) targets.push([$('cB'), C.b, 1]);
+  const targets = [[$('cF'), C.f]];
+  if (ALGOS[S.algo].bi) targets.push([$('cB'), C.b]);
   document.querySelectorAll('#ftiles .tile').forEach((t) => {
     if (!S.features.includes(t.dataset.v)) return;
     const a = t.getBoundingClientRect();
@@ -1019,13 +671,14 @@ function drawLinks() {
   });
 }
 
-/* ---------- the grid ---------- */
+/* ---------- drawing a search ---------- */
 function resizeGrid() {
-  const canvas = $('grid'), dpr = Math.min(devicePixelRatio || 1, 2), m = S.map;
-  const cssW = canvas.parentElement.clientWidth - 26;
-  S.cs = Math.max(3, Math.floor(cssW * dpr / m.w));
-  canvas.width = S.cs * m.w; canvas.height = S.cs * m.h;
-  canvas.style.aspectRatio = `${m.w} / ${m.h}`;
+  const canvas = $('grid'), box = $('stagebox'), dpr = Math.min(devicePixelRatio || 1, 2), m = S.map;
+  box.style.setProperty('--gr', `${m.w} / ${m.h}`);
+  $('raceGrid').style.setProperty('--gr', `${m.w} / ${m.h}`); $('algotable').style.setProperty('--gr', `${m.w} / ${m.h}`);
+  const fit = Math.min(box.clientWidth / m.w, (box.clientHeight || 1e9) / m.h);
+  S.cs = Math.max(3, Math.ceil(fit * dpr));
+  if (canvas.width !== S.cs * m.w || canvas.height !== S.cs * m.h) { canvas.width = S.cs * m.w; canvas.height = S.cs * m.h; }
   S.dirty = true;
 }
 function heuristicField() {
@@ -1034,27 +687,27 @@ function heuristicField() {
   for (let i = 0; i < n; i++) { if (S.map.cells[i] === WALL) continue; v[i] = (S.P.h(i, S.map.goal) - S.P.h(i, S.map.start)) / 2; max = Math.max(max, Math.abs(v[i])); }
   return S.field = { v, max };
 }
-function renderGrid() {
-  const canvas = $('grid'), ctx = canvas.getContext('2d'), s = S.search, m = S.map, cs = S.cs, n = m.w * m.h;
-  const now = Math.max(1, s.totalExpanded);
+function drawSearch(canvas, s, m, cs, view, opts) {
+  opts = opts || {};
+  const ctx = canvas.getContext('2d'), n = m.w * m.h, now = Math.max(1, s.totalExpanded);
   let maxG = 1;
-  if (S.view === 'territory') for (let i = 0; i < n; i++) for (const d of [0, 1]) if (s.g[d][i] < Infinity && s.g[d][i] > maxG) maxG = s.g[d][i];
-  const field = S.view === 'field' ? heuristicField() : null;
+  if (view === 'territory') for (let i = 0; i < n; i++) for (const d of [0, 1]) if (s.g[d][i] < Infinity && s.g[d][i] > maxG) maxG = s.g[d][i];
+  const field = view === 'field' ? heuristicField() : null;
   ctx.globalAlpha = 1; ctx.fillStyle = C.cell; ctx.fillRect(0, 0, canvas.width, canvas.height);
   for (let i = 0; i < n; i++) {
     const x = i % m.w, y = (i - x) / m.w, px = x * cs, py = y * cs, cell = m.cells[i];
     if (cell === WALL) { ctx.globalAlpha = 1; ctx.fillStyle = C.wall; ctx.fillRect(px, py, cs, cs); continue; }
     if (cell === MUD) { ctx.globalAlpha = 1; ctx.fillStyle = C.mud; ctx.fillRect(px, py, cs, cs); }
     let col = null, alpha = 0;
-    if (S.view === 'frontier') {
+    if (view === 'frontier') {
       const a = s.st[0][i], b = s.st[1][i];
       if (a === OPEN) { col = C.f; alpha = 1; }
       else if (b === OPEN) { col = C.b; alpha = 1; }
-      else if (a === CLOSED && b === CLOSED) { col = C.both; alpha = 0.8; }
-      else if (a === CLOSED) { col = C.f; alpha = 0.2 + 0.42 * Math.max(0, s.ord[0][i]) / now; }
-      else if (b === CLOSED) { col = C.b; alpha = 0.2 + 0.42 * Math.max(0, s.ord[1][i]) / now; }
+      else if (a === CLOSED && b === CLOSED) { col = C.both; alpha = 0.75; }
+      else if (a === CLOSED) { col = C.f; alpha = 0.22 + 0.4 * Math.max(0, s.ord[0][i]) / now; }
+      else if (b === CLOSED) { col = C.b; alpha = 0.22 + 0.4 * Math.max(0, s.ord[1][i]) / now; }
       else if (a === PRUNED || b === PRUNED) { col = C.ink3; alpha = 0.22; }
-    } else if (S.view === 'territory') {
+    } else if (view === 'territory') {
       const gf = s.st[0][i] ? s.g[0][i] : Infinity, gb = s.st[1][i] ? s.g[1][i] : Infinity;
       if (gf < Infinity || gb < Infinity) {
         const near = Math.min(gf, gb);
@@ -1069,7 +722,7 @@ function renderGrid() {
   }
   ctx.globalAlpha = 1;
   if (cs >= 8) {
-    ctx.strokeStyle = C.gridline; ctx.lineWidth = 1; ctx.globalAlpha = 0.55; ctx.beginPath();
+    ctx.strokeStyle = C.gridline; ctx.lineWidth = 1; ctx.globalAlpha = 0.5; ctx.beginPath();
     for (let x = 1; x < m.w; x++) { ctx.moveTo(x * cs + .5, 0); ctx.lineTo(x * cs + .5, canvas.height); }
     for (let y = 1; y < m.h; y++) { ctx.moveTo(0, y * cs + .5); ctx.lineTo(canvas.width, y * cs + .5); }
     ctx.stroke(); ctx.globalAlpha = 1;
@@ -1080,12 +733,15 @@ function renderGrid() {
     ctx.strokeStyle = C.path; ctx.lineWidth = Math.max(1.5, cs * .14); ctx.strokeRect(x * cs, y * cs, cs, cs);
   }
   if (s.meet >= 0) {
-    const path = s.path(), w = Math.max(2.5, cs * .3);
-    const line = () => { ctx.beginPath(); path.forEach((p, k) => { const [x, y] = center(p); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); };
+    const path = s.path(), w = Math.max(2.5, cs * .3), frac = opts.frac == null ? 1 : opts.frac;
+    const line = (count) => { ctx.beginPath(); path.slice(0, count).forEach((p, k) => { const [x, y] = center(p); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); };
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    ctx.setLineDash([]); ctx.strokeStyle = C.casing; ctx.lineWidth = w + Math.max(2, cs * .18); line(); ctx.stroke();
-    ctx.setLineDash(s.done ? [] : [cs * 1.1, cs * .9]); ctx.strokeStyle = C.path; ctx.lineWidth = w; line(); ctx.stroke(); ctx.setLineDash([]);
+    const solid = s.done ? Math.max(2, Math.ceil(path.length * frac)) : 0;
+    ctx.setLineDash([]); ctx.strokeStyle = C.casing; ctx.lineWidth = w + Math.max(2, cs * .18); line(path.length); ctx.stroke();
+    if (solid < path.length) { ctx.setLineDash([cs * 1.1, cs * .9]); ctx.strokeStyle = C.path; ctx.lineWidth = w; line(path.length); ctx.stroke(); ctx.setLineDash([]); }
+    if (solid) { ctx.strokeStyle = C.path; ctx.lineWidth = w; line(solid); ctx.stroke(); }
     const [mx, my] = center(s.meet);
+    if (s.done && frac < 1) { ctx.globalAlpha = 1 - frac; ctx.strokeStyle = C.both; ctx.lineWidth = Math.max(2, cs * .25); ctx.beginPath(); ctx.arc(mx, my, cs * (1 + frac * 7), 0, 7); ctx.stroke(); ctx.globalAlpha = 1; }
     ctx.fillStyle = C.both; ctx.strokeStyle = C.casing; ctx.lineWidth = Math.max(2, cs * .14);
     ctx.beginPath(); ctx.arc(mx, my, Math.max(5, cs * .55), 0, 7); ctx.fill(); ctx.stroke();
   }
@@ -1097,10 +753,23 @@ function renderGrid() {
   ctx.fillStyle = C.b;
   ctx.beginPath(); ctx.moveTo(x, y - r * 1.2); ctx.lineTo(x + r * 1.2, y); ctx.lineTo(x, y + r * 1.2); ctx.lineTo(x - r * 1.2, y); ctx.closePath(); ctx.fill(); ctx.stroke();
 }
+function miniPaint(canvas, s, m) {
+  const cell = hex(C.cell), wall = hex(C.wall), mud = hex(C.mud), f = hex(C.f), b = hex(C.b), both = hex(C.both), white = [255, 255, 255];
+  const fd = mix(cell, f, 0.42), bd = mix(cell, b, 0.42), onPath = new Set(s.meet >= 0 ? s.path() : []);
+  paint(canvas, m.w, m.h, (i) => {
+    if (onPath.has(i)) return white;
+    if (m.cells[i] === WALL) return wall;
+    const x = s.st[0][i], y = s.st[1][i];
+    if (x === OPEN) return f; if (y === OPEN) return b;
+    if (x === CLOSED && y === CLOSED) return both;
+    if (x === CLOSED) return fd; if (y === CLOSED) return bd;
+    return m.cells[i] === MUD ? mud : cell;
+  });
+}
 const LEGENDS = {
-  frontier: [[`var(--f)`, 'Start and forward frontier'], [`var(--b)`, 'Goal and backward frontier'], [`var(--both)`, 'Finished by both'], [`var(--mud)`, 'Mud']],
-  territory: [[`var(--f)`, 'Reached first from the start'], [`var(--b)`, 'Reached first from the goal'], [`var(--both)`, 'Equal cost from both']],
-  field: [[`var(--f)`, 'Nearer the start by estimate'], [`var(--b)`, 'Nearer the goal by estimate']],
+  frontier: [['var(--viz-f)', 'From the start'], ['var(--viz-b)', 'From the goal'], ['var(--viz-both)', 'Finished by both'], ['var(--viz-wall)', 'Wall'], ['var(--viz-mud)', 'Mud']],
+  territory: [['var(--viz-f)', 'Nearer the start'], ['var(--viz-b)', 'Nearer the goal'], ['var(--viz-both)', 'Equal cost']],
+  field: [['var(--viz-f)', 'Estimated nearer the start'], ['var(--viz-b)', 'Estimated nearer the goal']],
 };
 let legendFor = '';
 function renderLegend() {
@@ -1119,7 +788,7 @@ function drawChart(canvas, spec) {
   const ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
   const L = 34, R = 6, T = 8, B = 16, total = Math.max(1, spec.total);
   const X = (i) => L + i / total * (W - L - R), Y = (v) => T + (1 - (v - spec.min) / Math.max(1e-9, spec.max - spec.min)) * (H - T - B);
-  ctx.font = '11px "IBM Plex Mono", monospace'; ctx.textBaseline = 'middle';
+  ctx.font = '13px "IBM Plex Mono", monospace'; ctx.textBaseline = 'middle';
   ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.fillStyle = C.ink3; ctx.textAlign = 'right';
   for (const v of [spec.min, spec.max]) { ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(W - R, Y(v)); ctx.stroke(); ctx.fillText(fmt(v), L - 5, Y(v)); }
   ctx.textAlign = 'left'; ctx.fillText('0', L, H - 7); ctx.textAlign = 'right'; ctx.fillText(String(total), W - R, H - 7);
@@ -1136,13 +805,10 @@ function drawChart(canvas, spec) {
     }
     ctx.stroke();
   }
-  const finite = spec.series.map((s) => ({ s, v: s.data[s.data.length - 1], i: s.data.length - 1 })).filter((e) => e.v < Infinity).sort((a, b) => b.v - a.v);
-  finite.forEach((e, k) => {
+  spec.series.map((s) => ({ s, v: s.data[s.data.length - 1], i: s.data.length - 1 })).filter((e) => e.v < Infinity).forEach((e) => {
     ctx.fillStyle = e.s.color; ctx.beginPath(); ctx.arc(X(e.i), Y(e.v), 3, 0, 7); ctx.fill();
   });
-  if (spec.hover >= 0) {
-    ctx.strokeStyle = C.ink2; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(spec.hover), T); ctx.lineTo(X(spec.hover), H - B); ctx.stroke();
-  }
+  if (spec.hover >= 0) { ctx.strokeStyle = C.ink2; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(spec.hover), T); ctx.lineTo(X(spec.hover), H - B); ctx.stroke(); }
 }
 function attachChart(id, wrapId, key, label) {
   const canvas = $(id), wrap = $(wrapId), tip = document.createElement('div');
@@ -1158,66 +824,231 @@ function attachChart(id, wrapId, key, label) {
   canvas.addEventListener('click', (e) => { setPlaying(false); seek(idx(e)); });
 }
 function renderCharts() {
+  if ($('p-chart').hidden) return;
   const s = S.search, f = S.finalS;
   let min = Infinity, max = -Infinity;
-  // Step 0 is a placeholder bound of 0, recorded before any node is scored.
   for (let i = 1; i < f.hLb.length; i++) { const v = f.hLb[i]; if (v < min) min = v; if (v > max) max = v; }
   for (const v of f.hU) if (v < Infinity) { if (v < min) min = v; if (v > max) max = v; }
   if (S.truth < Infinity) { min = Math.min(min, S.truth); max = Math.max(max, S.truth); }
   if (min === Infinity) { min = 0; max = 1; }
-  drawChart($('chartBound'), { from: 1, total: S.total, min: Math.floor(min), max: Math.max(Math.ceil(max), Math.floor(min) + 1), ref: S.truth, hover: hover.bound,
-    series: [{ color: C.ink, data: s.hU }, { color: C.lb, data: s.hLb }] });
-  drawChart($('chartOpen'), { total: S.total, min: 0, max: Math.max(1, ...f.hOF, ...f.hOB), hover: hover.open,
-    series: [{ color: C.f, data: s.hOF }, { color: C.b, data: s.hOB }] });
+  drawChart($('chartBound'), { from: 1, total: S.total, min: Math.floor(min), max: Math.max(Math.ceil(max), Math.floor(min) + 1), ref: S.truth, hover: hover.bound, series: [{ color: C.ink, data: s.hU }, { color: C.lb, data: s.hLb }] });
+  drawChart($('chartOpen'), { total: S.total, min: 0, max: Math.max(1, ...f.hOF, ...f.hOB), hover: hover.open, series: [{ color: C.f, data: s.hOF }, { color: C.b, data: s.hOB }] });
 }
 
 /* ---------- readouts ---------- */
 function narrate(s) {
   const name = ALGOS[S.algo].name;
-  if (s.done && s.status === 'nopath') return `${name} ran out of nodes. The start and goal aren't connected.`;
+  if (s.done && s.status === 'nopath') return `${name} ran out of cells. The start and goal aren't connected.`;
   if (s.done) {
     const over = s.U - S.truth;
     return over > 1e-6
-      ? `${name} stopped after ${s.totalExpanded} expansions with a path of cost ${fmt(s.U)}, which is ${fmt(over)} more than the shortest path.`
-      : `${name} proved in ${s.totalExpanded} expansions that cost ${fmt(s.U)} is the shortest path.`;
+      ? `${name} stopped after ${s.totalExpanded} cells with a route of cost ${fmt(s.U)}, which is ${fmt(over)} more than the shortest.`
+      : `${name} proved in ${s.totalExpanded} cells that a cost of ${fmt(s.U)} is the shortest route.`;
   }
-  if (s.stepCount === 0) return `Press play, or step through one expansion at a time.`;
-  const x = s.lastNode % S.map.w, y = (s.lastNode - x) / S.map.w;
-  const where = `The ${s.lastSide ? 'backward' : 'forward'} side expanded (${x}, ${y}).`;
-  if (s.U === Infinity) return `${where} The frontiers haven't connected yet.`;
-  return `${where} A path of cost ${fmt(s.U)} exists, but the lower bound is ${fmt(s.lb)}, so something cheaper might still exist.`;
+  if (s.stepCount === 0) return 'Press Play, or step through one cell at a time. You can draw on the map whenever you like.';
+  if (s.U === Infinity) return `The ${s.lastSide ? 'blue' : 'orange'} side is spreading. The two haven't touched yet.`;
+  return `A route of cost ${fmt(s.U)} exists. No route costs less than ${fmt(s.lb)} so far, so a cheaper one is still possible.`;
+}
+const PHASE_NAMES = ['Growing from both ends', 'Frontiers connected', 'Proving the route', 'Shortest route proven'];
+function phaseNow(s) {
+  if (s.done) return 3;
+  if (s.U === Infinity) return 0;
+  return s.stepCount <= S.met + Math.max(1, Math.round((S.total - S.met) * .03)) ? 1 : 2;
+}
+function phaseTarget(p) {
+  const met = S.met < 0 ? S.total : S.met;
+  return [Math.round(met * .5), met, Math.round(met + (S.total - met) * .55), S.total][p];
+}
+let phaseShown = -1;
+function renderPhases(s) {
+  const now = phaseNow(s);
+  if (now === phaseShown) return;
+  phaseShown = now;
+  document.querySelectorAll('#phases button').forEach((b, i) => { b.className = i === now ? 'now' : i < now ? 'was' : ''; if (i === now) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
 }
 function renderReadouts() {
   const s = S.search;
   $('count').textContent = s.totalExpanded.toLocaleString('en-US');
-  $('mU').textContent = fmt(s.U); $('mLB').textContent = fmt(s.lb); $('mGap').textContent = s.U === Infinity ? '∞' : fmt(Math.max(0, s.U - s.lb)); $('mTrue').textContent = fmt(S.truth);
-  $('expF').textContent = `forward ${s.expanded[0]}`; $('expB').textContent = `backward ${s.expanded[1]}`;
+  $('mU').textContent = fmt(s.U); $('mLB').textContent = fmt(s.lb); $('mTrue').textContent = fmt(S.truth);
+  let pct = 0;
+  if (s.done) pct = 100;
+  else if (s.U < Infinity) { const lb0 = S.finalS.hLb[1] || 0; pct = Math.max(0, Math.min(99, Math.round((s.lb - lb0) / Math.max(1e-9, s.U - lb0) * 100))); }
+  $('mGap').textContent = pct + '%'; $('meter').style.width = pct + '%';
+  $('expF').textContent = `orange ${s.expanded[0]}`; $('expB').textContent = `blue ${s.expanded[1]}`;
   const t = Math.max(1, s.totalExpanded);
   $('balF').style.flex = `${s.expanded[0] / t} 1 0`; $('balB').style.flex = `${s.expanded[1] / t} 1 0`;
   $('scrub').value = s.stepCount; $('scrubv').textContent = `${s.stepCount} / ${S.total}`;
-  $('narrate').textContent = narrate(s);
-  const v = $('verdict'); let text = '', col = 'var(--ink2)';
+  if (S.tour < 0) $('narrate').textContent = narrate(s);
+  renderPhases(s);
+  const v = $('verdict'); let text = '', col = 'var(--viz-ink2)';
   if (s.done && s.status === 'found') {
-    if (s.U > S.truth + 1e-6) { text = `Not optimal, +${fmt(s.U - S.truth)}`; col = 'var(--warn)'; }
-    else { text = 'Optimal path proven'; col = 'var(--lb)'; }
-  } else if (s.done) text = 'No path exists';
-  else text = s.U < Infinity ? 'Candidate found, proving it' : 'Searching';
-  v.innerHTML = ''; const b = document.createElement('span'); b.className = 'badge'; b.style.color = col; b.textContent = text; v.append(b);
+    if (s.U > S.truth + 1e-6) { text = `Finished, but ${fmt(s.U - S.truth)} longer than the shortest`; col = 'var(--viz-warn)'; }
+    else { text = 'Optimal path proven'; col = 'var(--viz-lb)'; }
+  } else if (s.done) text = 'No route exists';
+  v.textContent = text; v.style.color = col;
   drawNeurons();
+}
+
+/* ---------- guided tour ---------- */
+const TOUR = [
+  { text: 'Orange spreads from the start and blue from the goal. Each new cell is one expansion.', k: () => Math.round(S.met * .35), mark: 'stagebox', tab: 't-prog' },
+  { text: 'The bright edge is the frontier: cells waiting their turn. Faded cells are finished.', k: () => Math.round(S.met * .85), mark: 'stagebox', tab: 't-prog' },
+  { text: 'The frontiers touched. The dashed line is a real route, but it may not be the shortest.', k: () => S.met, mark: 'phases', tab: 't-prog' },
+  { text: 'The search keeps working. It stops when the best route equals what it has proved.', k: () => Math.round(S.met + (S.total - S.met) * .55), mark: 'metrics', tab: 't-prog' },
+  { text: 'Proven. The solid line is the shortest route and the proof meter is full.', k: () => S.total, mark: 'meterbox', tab: 't-prog' },
+  { text: 'Your turn. Pick another algorithm here, or draw walls on the map and press Play.', k: () => 0, mark: 'algos', tab: 't-algo' },
+];
+function showTour() {
+  const t = TOUR[S.tour];
+  document.querySelectorAll('.coached').forEach((e) => e.classList.remove('coached'));
+  setPlaying(false);
+  selectTab($(t.tab));
+  seek(Math.max(0, t.k()));
+  $(t.mark).classList.add('coached');
+  $('narrate').textContent = t.text;
+  $('tourPos').textContent = `${S.tour + 1} of ${TOUR.length}`;
+  $('tourNext').textContent = S.tour === TOUR.length - 1 ? 'Done' : 'Next';
+  $('tourBack').disabled = S.tour === 0;
+}
+function startTour() { S.tour = 0; $('talk').classList.add('is-tour'); showTour(); }
+function endTour() {
+  if (S.tour < 0) return;
+  S.tour = -1; $('talk').classList.remove('is-tour');
+  document.querySelectorAll('.coached').forEach((e) => e.classList.remove('coached'));
+  S.dirty = true;
+}
+
+/* ---------- tabs ---------- */
+function selectTab(tab) {
+  const list = tab.parentElement;
+  list.querySelectorAll('[role=tab]').forEach((b) => {
+    const on = b === tab;
+    b.setAttribute('aria-selected', on);
+    $(b.getAttribute('aria-controls')).hidden = !on;
+  });
+  S.dirty = true;
+  requestAnimationFrame(drawLinks);
+}
+
+/* ---------- hero demo ---------- */
+const H = { on: !calm, seen: true, map: null, P: null, s: null, rate: 60, acc: 0, seed: 3, hold: 0, cs: 8 };
+function heroNew() {
+  const box = $('heroBody'), dpr = Math.min(devicePixelRatio || 1, 2), W = box.clientWidth, Hh = box.clientHeight;
+  if (!W || !Hh) return;
+  const cols = W < 400 ? 29 : 37, cs = Math.floor(W * dpr / cols);
+  let rows = Math.max(11, Math.floor(Hh * dpr / cs)); if (!(rows % 2)) rows -= 1;
+  H.seed = (H.seed * 31 + 11) % 9973;
+  H.map = makeMap('open', cols, rows, H.seed, 26, 0);
+  H.P = makeProblem(H.map, { diag: false, features: ['manhattan'], weight: 1 });
+  H.cs = cs;
+  const c = $('heroGrid');
+  c.width = cols * cs; c.height = rows * cs;
+  const total = new Search(H.P, 'mm', 'auto').run().stepCount;
+  H.rate = Math.max(20, total / 5.5);
+  H.s = new Search(H.P, 'mm', 'auto');
+  H.acc = 0; H.hold = 0;
+  if (!H.on) H.s.run();
+  heroDraw();
+}
+function heroDraw() {
+  const s = H.s; if (!s) return;
+  drawSearch($('heroGrid'), s, H.map, H.cs, 'frontier');
+  $('heroCount').textContent = s.totalExpanded;
+  $('heroU').textContent = s.U < Infinity ? 'cost ' + fmt(s.U) : '';
+  $('hn0').classList.toggle('is-on', true);
+  $('hn1').classList.toggle('is-on', s.U < Infinity);
+  $('hn2').classList.toggle('is-on', s.done);
+}
+function heroTick(dt) {
+  if (!H.on || !H.seen || !H.s) return;
+  if (H.s.done) { H.hold += dt; if (H.hold > 2.4) heroNew(); return; }
+  H.acc += dt * H.rate;
+  let moved = false;
+  while (H.acc >= 1 && !H.s.done) { H.s.step(); H.acc -= 1; moved = true; }
+  if (moved) heroDraw();
+}
+
+/* ---------- explainer frames ---------- */
+function drawExplainers() {
+  let seed = 11, m, P, f, met;
+  do { m = makeMap('open', 33, 25, seed, 22, 0); P = makeProblem(m, { diag: false, features: ['manhattan'], weight: 1 }); f = new Search(P, 'mm', 'auto').run(); met = f.hU.findIndex((u) => u < Infinity); seed += 7; } while (met < 8 || f.stepCount - met < 8);
+  const stops = [Math.round(met * .5), met, Math.round(met + (f.stepCount - met) * .55), f.stepCount];
+  stops.forEach((k, i) => {
+    const s = new Search(P, 'mm', 'auto'); while (s.stepCount < k && s.step());
+    const c = $('how' + i); c.width = m.w * 18; c.height = m.h * 18;
+    drawSearch(c, s, m, 18, 'frontier');
+  });
+}
+
+/* ---------- race ---------- */
+const R = { on: false, lanes: [], clock: 0, last: 0, seen: false, finished: 0 };
+function buildRace() {
+  const box = $('raceGrid');
+  for (const a of ALGO_ORDER) {
+    const b = document.createElement('button'); b.className = 'lane'; b.type = 'button'; b.title = `Open ${ALGOS[a].name} in the playground`;
+    const c = document.createElement('canvas'); c.setAttribute('role', 'img'); c.setAttribute('aria-label', `${ALGOS[a].name} on the current map`);
+    const row = document.createElement('div'); row.className = 'lane__row';
+    const n = document.createElement('b'); n.textContent = ALGOS[a].name;
+    const v = document.createElement('span'); row.append(n, v);
+    b.append(c, row);
+    b.onclick = () => { endTour(); setAlgo(a); setPlaying(true); $('playground').scrollIntoView(); };
+    box.append(b);
+    R.lanes.push({ a, b, c, v, s: null });
+  }
+}
+function raceLabel(l, place) {
+  const s = l.s, over = s.U - S.truth;
+  l.v.textContent = `${place ? '#' + place + '  ' : ''}${s.totalExpanded.toLocaleString('en-US')} cells${over > 1e-6 && s.U < Infinity ? ', +' + fmt(over) : ''}`;
+  l.b.classList.toggle('first', place === 1);
+}
+function showRaceResults() {
+  if (R.on) { R.on = false; $('raceBtn').textContent = 'Watch the race'; }
+  const order = R.lanes.slice().sort((x, y) => S.runs[x.a].totalExpanded - S.runs[y.a].totalExpanded);
+  R.lanes.forEach((l) => { l.s = S.runs[l.a]; miniPaint(l.c, l.s, S.map); miniPaint($('fp-' + l.a), l.s, S.map); raceLabel(l, order.indexOf(l) + 1); });
+}
+function startRace() {
+  if (R.on) { showRaceResults(); return; }
+  R.lanes.forEach((l) => { l.s = new Search(S.P, l.a, S.side); l.place = 0; l.b.classList.remove('first'); });
+  R.clock = 0; R.finished = 0; R.on = true;
+  const most = Math.max(...Object.values(S.runs).map((s) => s.totalExpanded));
+  R.rate = Math.max(40, most / 7);
+  $('raceBtn').textContent = 'Show the results';
+}
+function raceTick(dt) {
+  if (!R.on || !R.seen) return;
+  R.clock += dt * R.rate;
+  for (const l of R.lanes) {
+    if (l.s.done) continue;
+    while (!l.s.done && l.s.totalExpanded < R.clock) l.s.step();
+    if (l.s.done) l.place = ++R.finished;
+    miniPaint(l.c, l.s, S.map);
+    raceLabel(l, l.place);
+  }
+  if (R.finished === R.lanes.length) { R.on = false; $('raceBtn').textContent = 'Watch the race'; }
 }
 
 /* ---------- main loop ---------- */
 const stepsPerSecond = () => Math.round(3 * Math.pow(10, +$('speed').value / 100 * 2.9));
+let lastFrame = 0;
 function frame(t) {
+  const dt = Math.min(.1, (t - lastFrame) / 1000); lastFrame = t;
+  heroTick(dt); raceTick(dt);
   if (S.needRebuild) { S.needRebuild = false; rebuild(S.search.stepCount); }
   if (S.playing) {
     S.acc += Math.min(100, t - S.last) / 1000 * stepsPerSecond(); S.last = t;
     let moved = false;
     while (S.acc >= 1 && !S.search.done) { S.search.step(); S.acc -= 1; moved = true; }
     if (moved) S.dirty = true;
-    if (S.search.done) setPlaying(false);
+    if (S.search.done) { setPlaying(false); S.finT = calm ? 0 : t; }
   }
-  if (S.dirty) { S.dirty = false; renderGrid(); renderLegend(); renderReadouts(); renderCharts(); }
+  if (S.finT) S.dirty = true;
+  if (S.dirty) {
+    S.dirty = false;
+    let frac = 1;
+    if (S.finT) { frac = Math.min(1, (t - S.finT) / 900); if (frac >= 1) S.finT = 0; }
+    drawSearch($('grid'), S.search, S.map, S.cs, S.view, { frac });
+    renderLegend(); renderReadouts(); renderCharts();
+  }
   requestAnimationFrame(frame);
 }
 
@@ -1244,15 +1075,16 @@ function bindMapEdit() {
   canvas.addEventListener('pointerdown', (e) => {
     const i = cellAt(e), m = S.map;
     canvas.setPointerCapture(e.pointerId);
-    setPlaying(false);
+    setPlaying(false); endTour();
     if (i === m.start) mode = 'start'; else if (i === m.goal) mode = 'goal';
     else { mode = 'paint'; paintCell(i); S.needRebuild = true; }
     prev = i;
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (!mode) return;
-    const i = cellAt(e), m = S.map;
-    if (i === prev) return;
+    const i = cellAt(e), m = S.map, s = S.search;
+    const x = i % m.w, y = (i - x) / m.w, gf = s.g[0][i], gb = s.g[1][i];
+    $('cellinfo').textContent = m.cells[i] === WALL ? `(${x}, ${y}) wall` : `(${x}, ${y}) start ${gf < Infinity ? fmt(gf) : '–'}, goal ${gb < Infinity ? fmt(gb) : '–'}`;
+    if (!mode || i === prev) return;
     if (mode === 'paint') paintLine(prev, i);
     else if (m.cells[i] !== WALL && i !== m.start && i !== m.goal) { m[mode] = i; }
     prev = i; S.needRebuild = true;
@@ -1261,52 +1093,65 @@ function bindMapEdit() {
   canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
 }
 function bindControls() {
+  for (const a of ALGO_ORDER) {
+    const b = document.createElement('button'); b.type = 'button'; b.dataset.v = a; b.setAttribute('role', 'radio');
+    const n = document.createElement('b'), d = document.createElement('span'); n.textContent = ALGOS[a].name; d.textContent = INFO[a].short; b.append(n, d);
+    b.onclick = () => { endTour(); setAlgo(a); setPlaying(true); };
+    $('algos').append(b);
+  }
+  PHASE_NAMES.forEach((name, p) => {
+    const li = document.createElement('li'), b = document.createElement('button'); b.type = 'button';
+    b.innerHTML = '<i></i>'; b.append(name); b.title = 'Jump to this moment';
+    b.onclick = () => { setPlaying(false); endTour(); seek(phaseTarget(p)); phaseShown = -1; };
+    li.append(b); $('phases').append(li);
+  });
   for (const p of PRESETS) {
-    const b = document.createElement('button'); b.className = 'tile'; b.dataset.v = p[0];
+    const b = document.createElement('button'); b.className = 'tile'; b.type = 'button'; b.dataset.v = p[0];
     b.innerHTML = `<canvas></canvas><span>${p[1]}</span>`;
-    b.onclick = () => { S.preset = p[0]; S.noise = p[2]; S.mud = p[3]; syncControls(); regen(0); setPlaying(true); };
+    b.onclick = () => { endTour(); S.preset = p[0]; S.noise = p[2]; S.mud = p[3]; syncControls(); regen(0); setPlaying(true); };
     $('presets').append(b);
   }
   for (const [v, label] of FEATURES) {
-    const b = document.createElement('button'); b.className = 'tile ftile'; b.dataset.v = v;
-    b.innerHTML = `<canvas></canvas><span>${label}</span><i class="bad" hidden title="Overestimates with diagonal moves">!</i>`;
+    const b = document.createElement('button'); b.className = 'tile ftile'; b.type = 'button'; b.dataset.v = v;
+    b.innerHTML = `<canvas></canvas><span>${label}</span><i class="bad" hidden title="Guesses too high with diagonal moves">!</i>`;
     b.querySelector('.bad').style.fontStyle = 'normal';
-    b.onclick = () => {
-      S.features = S.features.includes(v) ? S.features.filter((x) => x !== v) : [...S.features, v];
-      syncControls(); rebuild(S.search.stepCount); drawLinks();
-    };
+    b.onclick = () => { S.features = S.features.includes(v) ? S.features.filter((x) => x !== v) : [...S.features, v]; syncControls(); rebuild(S.search.stepCount); drawLinks(); };
     $('ftiles').append(b);
   }
-  for (const r of RECIPES) {
-    const b = document.createElement('button'); b.className = 'recipe';
-    const t = document.createElement('b'), d = document.createElement('span'); t.textContent = r.t; d.textContent = r.d; b.append(t, d);
-    b.onclick = () => applyConfig(r.c);
-    $('recipes').append(b);
-  }
-  const tbody = $('algotable');
+  RECIPES.forEach((r) => {
+    const a = document.createElement('a'); a.className = 'card card--open span-4 try-card'; a.href = '#playground';
+    const panel = document.createElement('div'); panel.className = 'panel panel--top';
+    const c = document.createElement('canvas'); c.setAttribute('role', 'img'); c.setAttribute('aria-label', r.t); panel.append(c); r.canvas = c;
+    const t = document.createElement('h3'), d = document.createElement('p'); t.textContent = r.t; d.textContent = r.d;
+    a.append(panel, t, d);
+    a.addEventListener('click', () => applyConfig(r.c));
+    $('recipes').append(a);
+  });
   for (const a of ALGO_ORDER) {
     const tr = document.createElement('tr'), i = INFO[a];
-    for (const [text, code] of [[ALGOS[a].name, 0], [i.pri, 1], [i.stop, 1], [i.note, 0], [i.src, 0]]) {
-      const td = document.createElement('td');
-      if (code) { const c = document.createElement('code'); c.textContent = text; td.append(c); } else td.textContent = text;
-      tr.append(td);
-    }
-    tbody.append(tr);
+    const fp = document.createElement('td'), fc = document.createElement('canvas'); fc.id = 'fp-' + a; fc.setAttribute('role', 'img'); fc.setAttribute('aria-label', `Cells ${ALGOS[a].name} expanded on the current map`); fp.append(fc); tr.append(fp);
+    const name = document.createElement('td'), l = document.createElement('a'); l.className = 'link'; l.href = '#playground'; l.textContent = ALGOS[a].name;
+    l.addEventListener('click', () => { endTour(); setAlgo(a); setPlaying(true); });
+    const src = document.createElement('small'); src.textContent = i.src; name.append(l, src); tr.append(name);
+    const plain = document.createElement('td'); plain.textContent = i.plain; tr.append(plain);
+    for (const text of [i.pri, i.stop]) { const td = document.createElement('td'), c = document.createElement('code'); c.textContent = text; td.append(c); tr.append(td); }
+    $('algotable').append(tr);
   }
-  $('play').onclick = () => setPlaying(!S.playing);
-  $('step').onclick = () => { setPlaying(false); S.search.step(); S.dirty = true; };
-  $('reset').onclick = () => { setPlaying(false); seek(0); };
-  $('scrub').oninput = (e) => { setPlaying(false); seek(+e.target.value); };
-  $('algo').onchange = (e) => { S.algo = e.target.value; syncAlgo(); rebuild(0); setPlaying(true); };
-  $('moves').onchange = (e) => {
-    S.diag = e.target.value === '8'; updateNote(); drawLinks(); rebuild(S.search.stepCount); drawFeatureTiles();
-  };
+  document.querySelectorAll('.rtabs [role=tab]').forEach((b) => b.addEventListener('click', () => selectTab(b)));
+  $('play').onclick = () => { endTour(); setPlaying(!S.playing); };
+  $('step').onclick = () => { endTour(); setPlaying(false); S.search.step(); S.dirty = true; };
+  $('reset').onclick = () => { endTour(); setPlaying(false); seek(0); };
+  $('scrub').oninput = (e) => { endTour(); setPlaying(false); seek(+e.target.value); };
+  $('tourBtn').onclick = () => { startTour(); $('playground').scrollIntoView(); };
+  $('tourNext').onclick = () => { if (S.tour >= TOUR.length - 1) endTour(); else { S.tour++; showTour(); } };
+  $('tourBack').onclick = () => { if (S.tour > 0) { S.tour--; showTour(); } };
+  $('moves').onchange = (e) => { S.diag = e.target.value === '8'; updateNote(); drawLinks(); rebuild(S.search.stepCount); drawFeatureTiles(); };
   $('side').onchange = (e) => { S.side = e.target.value; rebuild(0); };
   $('cols').oninput = (e) => { S.cols = +e.target.value; syncControls(); regen(0); };
   $('noise').oninput = (e) => { S.noise = +e.target.value; syncControls(); regen(S.search.stepCount); };
   $('mud').oninput = (e) => { S.mud = +e.target.value; syncControls(); regen(S.search.stepCount); };
   $('weight').oninput = (e) => { S.weight = +e.target.value; syncControls(); rebuild(S.search.stepCount); drawLinks(); };
-  $('shuffle').onclick = () => { S.seed = (S.seed * 31 + 17) % 100003; regen(0); setPlaying(true); };
+  $('shuffle').onclick = () => { endTour(); S.seed = (S.seed * 31 + 17) % 100003; regen(0); setPlaying(true); };
   const seg = (id, key) => $(id).addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
     S[key] = b.dataset.v;
@@ -1314,34 +1159,61 @@ function bindControls() {
     S.dirty = true;
   });
   seg('tools', 'tool'); seg('views', 'view');
+  document.querySelectorAll('[data-start]').forEach((a) => a.addEventListener('click', () => { endTour(); setPlaying(false); seek(0); setPlaying(true); }));
+  $('raceBtn').onclick = startRace;
+  $('heroPause').onclick = () => {
+    H.on = !H.on;
+    $('heroPauseIcon').setAttribute('d', H.on ? 'M3 2h4v12H3zM9 2h4v12H9z' : 'M4 2l10 6-10 6z');
+    $('heroPause').setAttribute('aria-label', H.on ? 'Pause the demo' : 'Play the demo');
+  };
+  let inPlay = false;
+  new IntersectionObserver((e) => { inPlay = e[e.length - 1].isIntersecting; }, { threshold: .35 }).observe($('playground'));
+  new IntersectionObserver((e) => { H.seen = e[e.length - 1].isIntersecting; }).observe($('heroBody'));
+  new IntersectionObserver((e) => { R.seen = e[e.length - 1].isIntersecting; }).observe($('raceGrid'));
   document.addEventListener('keydown', (e) => {
-    if (['INPUT', 'SELECT', 'BUTTON'].includes(e.target.tagName) && e.key === ' ') return;
-    if (['INPUT', 'SELECT'].includes(e.target.tagName)) return;
+    if (!inPlay || ['INPUT', 'SELECT', 'BUTTON', 'A'].includes(e.target.tagName)) return;
     if (e.key === ' ') { e.preventDefault(); setPlaying(!S.playing); }
     else if (e.key === 'ArrowRight') { setPlaying(false); S.search.step(); S.dirty = true; }
     else if (e.key === 'ArrowLeft') { setPlaying(false); seek(Math.max(0, S.search.stepCount - 1)); }
     else if (e.key.toLowerCase() === 'r') { setPlaying(false); seek(0); }
   });
-  attachChart('chartBound', 'wrapBound', 'bound', (k) => `step ${k}  U ${fmt(S.finalS.hU[k])}  LB ${fmt(S.finalS.hLb[k])}`);
-  attachChart('chartOpen', 'wrapOpen', 'open', (k) => `step ${k}  F ${S.finalS.hOF[k]}  B ${S.finalS.hOB[k]}`);
-  new ResizeObserver(() => { resizeGrid(); drawLinks(); S.dirty = true; }).observe($('grid').parentElement);
+  attachChart('chartBound', 'wrapBound', 'bound', (k) => `step ${k}  best ${fmt(S.finalS.hU[k])}  bound ${fmt(S.finalS.hLb[k])}`);
+  attachChart('chartOpen', 'wrapOpen', 'open', (k) => `step ${k}  orange ${S.finalS.hOF[k]}  blue ${S.finalS.hOB[k]}`);
+  new ResizeObserver(() => { resizeGrid(); }).observe($('stagebox'));
   new ResizeObserver(drawLinks).observe($('pipe'));
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
-  new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  let heroW = 0;
+  new ResizeObserver(() => { const w = $('heroBody').clientWidth; if (Math.abs(w - heroW) > 8) { heroW = w; heroNew(); } }).observe($('heroBody'));
+}
+function drawRecipes() {
+  let i = 0;
+  (function next() {
+    const r = RECIPES[i++]; if (!r) return;
+    const p = PRESETS.find((x) => x[0] === r.c.preset);
+    const m = makeMap(presetBase(p[0]), 51, 31, 7, p[2], p[3]);
+    const P = makeProblem(m, { diag: !!r.c.diag, features: r.c.features || (r.c.diag ? ['octile'] : ['manhattan']), weight: r.c.weight == null ? 1 : r.c.weight });
+    miniPaint(r.canvas, new Search(P, r.c.algo, 'auto').run(), m);
+    setTimeout(next, 0);
+  })();
 }
 
+readTheme();
+buildRace();
 bindControls();
 bindMapEdit();
-C.f = '';
-readTheme();
+drawThumbs();
 regen(0);
 syncControls();
-{ // Open mid-proof: the frontiers have connected but the search isn't finished.
-  const met = S.finalS.hU.findIndex((u) => u < Infinity);
-  seek(met < 0 ? 0 : Math.round(met + (S.total - met) * 0.35));
+renderCompare();
+drawExplainers();
+drawRecipes();
+{ // The playground opens mid-proof so the map already shows both searches and a candidate route.
+  seek(S.met < 0 ? 0 : Math.round(S.met + (S.total - S.met) * 0.35));
 }
-readTheme();
-requestAnimationFrame((t) => { S.last = t; frame(t); });
+heroNew();
+requestAnimationFrame((t) => { S.last = t; lastFrame = t; frame(t); });
 </script>
-
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script type="module" src="assets/layout/layout.js"></script>
+</body>
 </html>
